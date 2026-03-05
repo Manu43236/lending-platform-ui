@@ -46,8 +46,12 @@ const AppLayout = () => {
       icon: <FileTextOutlined />,
       label: 'LOS',
       children: [
-        { key: '/los/applications', label: 'Loan Applications' },
-        { key: '/los/new', label: 'New Application' },
+        { key: '/los/applications',         label: 'Loan Applications'    },
+        { key: '/los/credit-assessments',   label: 'Credit Assessments'  },
+        { key: '/los/approvals',            label: 'Approvals / Rejections' },
+        { key: '/los/disbursements',        label: 'Disbursements'        },
+        { key: '/los/documents',            label: 'Documents'            },
+        { key: '/los/collaterals',          label: 'Collaterals'          },
       ],
     },
     {
@@ -55,7 +59,7 @@ const AppLayout = () => {
       icon: <BankOutlined />,
       label: 'LMS',
       children: [
-        { key: '/lms/active', label: 'Active Loans' },
+        { key: '/lms/active-loans', label: 'Active Loans' },
         { key: '/lms/emi-schedule', label: 'EMI Schedule' },
         { key: '/lms/payments', label: 'Payments' },
         { key: '/lms/closure', label: 'Loan Closure' },
@@ -72,7 +76,7 @@ const AppLayout = () => {
       label: 'Collections',
       children: [
         { key: '/collections/overdue', label: 'Overdue Loans' },
-        { key: '/collections/dpd', label: 'DPD Buckets' },
+        { key: '/collections/dpd-buckets', label: 'DPD Buckets' },
         { key: '/collections/penalties', label: 'Penalties' },
         { key: '/collections/npa', label: 'NPA Accounts' },
       ],
@@ -242,6 +246,8 @@ const AppLayout = () => {
         <Content style={{
           margin: '24px',
           minHeight: 'calc(100vh - 112px)',
+          minWidth: 0,
+          overflow: 'hidden',
         }}>
           <Outlet />
         </Content>

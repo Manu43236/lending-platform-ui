@@ -17,6 +17,9 @@ export const loanApi = {
   // Create loan
   create: (data) => api.post('/api/loans', data),
 
+  // Get EMI schedule
+  getEmiSchedule: (loanNumber) => api.get(`/api/loans/${loanNumber}/emi-schedule`),
+
   // Get loan timeline
   getTimeline: (loanNumber) => api.get(`/api/loans/${loanNumber}/timeline`),
 

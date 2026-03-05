@@ -30,19 +30,21 @@ const DataTable = ({
     : false
 
   const tableContent = (
-    <Table
-      columns={columns}
-      dataSource={dataSource}
-      loading={loading}
-      rowKey={rowKey}
-      pagination={paginationConfig}
-      onRow={onRow}
-      scroll={scroll || { x: 'max-content' }}
-      size={size}
-      bordered={bordered}
-      expandable={expandable}
-      style={{ borderRadius: 8 }}
-    />
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <Table
+        columns={columns}
+        dataSource={dataSource}
+        loading={loading}
+        rowKey={rowKey}
+        pagination={paginationConfig}
+        onRow={onRow}
+        scroll={scroll || { x: 'max-content' }}
+        size={size}
+        bordered={bordered}
+        expandable={expandable}
+        style={{ borderRadius: 8, minWidth: 600 }}
+      />
+    </div>
   )
 
   if (title || extra) {

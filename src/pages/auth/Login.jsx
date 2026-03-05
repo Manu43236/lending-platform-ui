@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Form, Input, Button, Typography, Alert, Space } from 'antd'
 import { UserOutlined, LockOutlined, BankOutlined } from '@ant-design/icons'
-import api from '../../api/axios'
+import { authApi } from '../../api/authApi'
 import useAuthStore from '../../store/authStore'
+import { getErrorMessage } from '../../utils/errorHandler'
 
 const { Title, Text } = Typography
 
@@ -17,12 +18,12 @@ const Login = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.post('/api/auth/login', values)
+      const res = await authApi.login(values)
       const data = res.data.data
       login(data.token, data)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid username or password')
+      setError(getErrorMessage(err))
     } finally {
       setLoading(false)
     }
