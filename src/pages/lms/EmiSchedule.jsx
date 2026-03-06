@@ -36,10 +36,10 @@ const DPD_BUCKETS = [
 
 const today = dayjs()
 
-// Default: show PENDING + OVERDUE EMIs due up to today (collection worklist)
+// Default: show today's EMIs across all loans
 const DEFAULT_FILTERS = {
-  status:     null,        // null = PENDING + OVERDUE combined (handled below)
-  dateRange:  null,
+  status:     null,
+  dateRange:  [today, today],
   dpdBucket:  null,
   loanNumber: '',
 }
@@ -58,7 +58,7 @@ const EmiSchedule = () => {
       size,
       status:      f.status || undefined,
       dueDateFrom: f.dateRange?.[0]?.format('YYYY-MM-DD') || undefined,
-      dueDateTo:   f.dateRange?.[1]?.format('YYYY-MM-DD') || today.format('YYYY-MM-DD'),
+      dueDateTo:   f.dateRange?.[1]?.format('YYYY-MM-DD') || undefined,
       dpdMin:      bucket?.dpdMin ?? undefined,
       dpdMax:      bucket?.dpdMax ?? undefined,
       loanNumber:  f.loanNumber?.trim() || undefined,
@@ -80,7 +80,7 @@ const EmiSchedule = () => {
     }
   }, [filters, buildParams])
 
-  // On mount — default: PENDING+OVERDUE due up to today
+  // On mount — load today's EMIs by default
   useEffect(() => { fetchData(0, 50, DEFAULT_FILTERS) }, []) // eslint-disable-line
 
   const handleFilter = (key, value) => {
@@ -194,7 +194,7 @@ const EmiSchedule = () => {
     <>
       <PageHeader
         title="EMI Schedule"
-        subtitle="Collection worklist — today's dues, overdue and pending EMIs across all loans"
+        subtitle="Today's EMI dues across all loans — change the date range to view past or future schedules"
         breadcrumbs={[{ label: 'LMS' }, { label: 'EMI Schedule' }]}
       />
 
