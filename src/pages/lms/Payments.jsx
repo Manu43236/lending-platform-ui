@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Input, Tag, Space, Card, Table, Row, Col, Alert,
-  Form, Select, InputNumber, DatePicker, Button, Tabs, Statistic,
+  Form, Select, InputNumber, DatePicker, Button, Tabs,
 } from 'antd'
 import { SearchOutlined, CreditCardOutlined, ReloadOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -274,33 +274,58 @@ const PaymentRegister = () => {
 // ─── Tab 2: Process Payment ───────────────────────────────────────────────────
 
 const ProcessPayment = () => {
-  const [search, setSearch]         = useState('')
-  const [loan, setLoan]             = useState(null)
-  const [schedule, setSchedule]     = useState([])
-  const [loading, setLoading]       = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [searched, setSearched]     = useState(false)
+  const [search, setSearch]           = useState('')
+  const [loan, setLoan]               = useState(null)
+  const [schedule, setSchedule]       = useState([])
+  const [loading, setLoading]         = useState(false)
+  const [submitting, setSubmitting]   = useState(false)
+  const [searched, setSearched]       = useState(false)
+  const [worklistLoans, setWorklistLoans] = useState([])
+  const [worklistLoading, setWorklistLoading] = useState(false)
   const [form] = Form.useForm()
 
-  const fetchLoan = useCallback(async () => {
-    if (!search.trim()) return
+  // Load payable loans as worklist on mount
+  useEffect(() => {
+    const loadWorklist = async () => {
+      setWorklistLoading(true)
+      try {
+        const res = await loanApi.getAll({ page: 0, size: 500 })
+        const all = res.data?.data?.content || []
+        setWorklistLoans(
+          all
+            .filter((l) => PAYABLE_STATUSES.includes(l.loanStatusCode))
+            .sort((a, b) => (b.currentDpd || 0) - (a.currentDpd || 0)) // highest DPD first
+        )
+      } catch { /* silent */ }
+      finally { setWorklistLoading(false) }
+    }
+    loadWorklist()
+  }, [])
+
+  const loadLoan = useCallback(async (loanNumber) => {
     setLoading(true)
     setSearched(true)
+    setSearch(loanNumber)
     try {
       const [loanRes, scheduleRes] = await Promise.all([
-        loanApi.getByLoanNumber(search.trim()),
-        loanApi.getEmiSchedule(search.trim()),
+        loanApi.getByLoanNumber(loanNumber),
+        loanApi.getEmiSchedule(loanNumber),
       ])
       setLoan(loanRes.data?.data)
       setSchedule(scheduleRes.data?.data || [])
     } catch {
       setLoan(null)
       setSchedule([])
-      showError(null, 'Loan not found: ' + search.trim())
+      showError(null, 'Loan not found: ' + loanNumber)
     } finally {
       setLoading(false)
     }
-  }, [search])
+  }, [])
+
+  const fetchLoan = useCallback(async () => {
+    if (!search.trim()) return
+    loadLoan(search.trim())
+  }, [search, loadLoan])
 
   const handlePayment = async (values) => {
     setSubmitting(true)
@@ -347,6 +372,83 @@ const ProcessPayment = () => {
     },
   ]
 
+  const worklistColumns = [
+    {
+      title: 'Loan No.',
+      dataIndex: 'loanNumber',
+      key: 'loanNumber',
+      render: (v) => <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1B3A6B', fontSize: 12 }}>{v}</span>,
+    },
+    {
+      title: 'Customer',
+      dataIndex: 'customerName',
+      key: 'customerName',
+      render: (v) => <span style={{ fontWeight: 500 }}>{v}</span>,
+    },
+    {
+      title: 'Next Installment',
+      key: 'nextEmi',
+      render: (_, row) => {
+        const emiNo = (row.numberOfPaidEmis || 0) + 1
+        return (
+          <Space direction="vertical" size={0}>
+            <span style={{ fontWeight: 600 }}>EMI #{emiNo}</span>
+            <span style={{ fontSize: 11, color: '#888' }}>{formatDate(row.nextDueDate) || '—'}</span>
+          </Space>
+        )
+      },
+    },
+    {
+      title: 'EMI Amount',
+      dataIndex: 'emiAmount',
+      key: 'emiAmount',
+      align: 'right',
+      render: (v) => <span style={{ fontWeight: 600 }}>{formatCurrency(v, 0)}</span>,
+    },
+    {
+      title: 'Overdue Amt',
+      dataIndex: 'totalOverdueAmount',
+      key: 'totalOverdueAmount',
+      align: 'right',
+      render: (v) => v > 0
+        ? <span style={{ color: '#cf1322', fontWeight: 600 }}>{formatCurrency(v, 0)}</span>
+        : <span style={{ color: '#bbb' }}>—</span>,
+    },
+    {
+      title: 'DPD',
+      dataIndex: 'currentDpd',
+      key: 'currentDpd',
+      align: 'center',
+      render: (v) => v > 0
+        ? <span style={{ color: v > 60 ? '#820014' : v > 30 ? '#f5222d' : '#faad14', fontWeight: 600 }}>{v}d overdue</span>
+        : <Tag color="success" style={{ fontSize: 11 }}>On Track</Tag>,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'loanStatusCode',
+      key: 'loanStatusCode',
+      render: (v) => (
+        <Tag color={
+          v === 'OVERDUE'   ? 'warning' :
+          v === 'NPA'       ? 'error' :
+          v === 'ACTIVE'    ? 'success' :
+          v === 'CURRENT'   ? 'cyan' :
+          v === 'DISBURSED' ? 'blue' : 'default'
+        }>{v}</Tag>
+      ),
+    },
+    {
+      title: '',
+      key: 'action',
+      width: 100,
+      render: (_, row) => (
+        <Button size="small" type="primary" onClick={(e) => { e.stopPropagation(); loadLoan(row.loanNumber) }}>
+          Collect
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <>
       {/* Search */}
@@ -366,8 +468,34 @@ const ProcessPayment = () => {
         <Alert type="warning" showIcon message={`No loan found for: ${search}`} />
       )}
 
+      {/* Worklist — shown when no loan is selected */}
+      {!loan && (
+        <Card
+          title={<span>Collection Worklist <span style={{ fontSize: 12, color: '#888', fontWeight: 400 }}>— click a loan to process payment</span></span>}
+          size="small"
+          style={{ borderRadius: 10, marginBottom: 20 }}
+        >
+          <Table
+            columns={worklistColumns}
+            dataSource={worklistLoans}
+            rowKey="id"
+            size="small"
+            loading={worklistLoading}
+            pagination={{ pageSize: 8, size: 'small' }}
+            onRow={(row) => ({ onClick: () => loadLoan(row.loanNumber), style: { cursor: 'pointer' } })}
+            rowClassName={(r) => r.loanStatusCode === 'OVERDUE' || r.loanStatusCode === 'NPA' ? 'row-overdue' : ''}
+            locale={{ emptyText: 'No active loans with pending payments' }}
+          />
+        </Card>
+      )}
+
       {loan && (
         <Row gutter={[16, 16]}>
+          <Col span={24}>
+            <Button size="small" onClick={() => { setLoan(null); setSchedule([]); setSearch(''); setSearched(false) }}>
+              ← Back to worklist
+            </Button>
+          </Col>
           {/* Loan summary */}
           <Col span={24}>
             <Card size="small" style={{ borderRadius: 10 }}>
