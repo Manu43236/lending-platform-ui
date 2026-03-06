@@ -49,7 +49,6 @@ const AppLayout = () => {
         { key: '/los/applications',         label: 'Loan Applications'    },
         { key: '/los/credit-assessments',   label: 'Credit Assessments'  },
         { key: '/los/approvals',            label: 'Approvals / Rejections' },
-        { key: '/los/disbursements',        label: 'Disbursements'        },
         { key: '/los/documents',            label: 'Documents'            },
         { key: '/los/collaterals',          label: 'Collaterals'          },
       ],
@@ -247,7 +246,6 @@ const AppLayout = () => {
           margin: '24px',
           minHeight: 'calc(100vh - 112px)',
           minWidth: 0,
-          overflow: 'hidden',
         }}>
           <Outlet />
         </Content>

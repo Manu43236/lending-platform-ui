@@ -37,7 +37,6 @@ const NewLoan = () => {
 
   // customer search
   const [customers, setCustomers] = useState([])
-  const [customerSearch, setCustomerSearch] = useState('')
   const [customerLoading, setCustomerLoading] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
 
@@ -56,15 +55,14 @@ const NewLoan = () => {
       .catch(() => {})
   }, [])
 
-  // search customers
+  // load all customers on mount, filter client-side on search
   useEffect(() => {
-    if (!customerSearch || customerSearch.length < 2) { setCustomers([]); return }
     setCustomerLoading(true)
-    customerApi.getAll({ page: 0, size: 10, name: customerSearch })
+    customerApi.getAll({ page: 0, size: 500 })
       .then((r) => setCustomers(r.data?.data?.content || []))
       .catch(() => {})
       .finally(() => setCustomerLoading(false))
-  }, [customerSearch])
+  }, [])
 
   const handleLoanTypeChange = async (code) => {
     form.setFieldValue('tenureMonths', undefined)
@@ -151,17 +149,16 @@ const NewLoan = () => {
                 rules={[{ required: true, message: 'Please select a customer' }]}>
                 <Select
                   showSearch
-                  placeholder="Type customer name to search..."
-                  filterOption={false}
-                  onSearch={setCustomerSearch}
+                  placeholder="Search customer name or number..."
+                  filterOption={(input, option) =>
+                    option?.label?.toLowerCase().includes(input.toLowerCase())
+                  }
                   onSelect={handleCustomerSelect}
                   loading={customerLoading}
-                  notFoundContent={customerSearch.length < 2
-                    ? 'Type at least 2 characters'
-                    : customerLoading ? <Spin size="small" /> : 'No customers found'}
+                  notFoundContent={customerLoading ? <Spin size="small" /> : 'No customers found'}
                 >
                   {customers.map((c) => (
-                    <Option key={c.id} value={c.id}>
+                    <Option key={c.id} value={c.id} label={`${c.name} ${c.customerNumber}`}>
                       <Space>
                         <Text strong>{c.name}</Text>
                         <Text type="secondary" style={{ fontSize: 12 }}>{c.customerNumber}</Text>

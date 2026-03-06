@@ -19,12 +19,13 @@ const LoanStatusTag = ({ status }) => {
   )
 }
 
+// Loans that have reached the approval stage
 const APPROVAL_STATUSES = new Set(['UNDER_REVIEW', 'MANUAL_REVIEW', 'APPROVED', 'REJECTED', 'DISBURSED', 'ACTIVE', 'OVERDUE', 'NPA', 'CLOSED'])
 
 const Approvals = () => {
   const navigate = useNavigate()
   const [loans, setLoans] = useState([])
-  const [histories, setHistories] = useState({}) // loanNumber -> latest approval
+  const [histories, setHistories] = useState({}) // loanNumber -> latest approval action
   const [pagination, setPagination] = useState({ page: 0, size: 10, totalElements: 0 })
   const [loading, setLoading] = useState(false)
   const [statusFilter, setStatusFilter] = useState(null)
@@ -43,7 +44,7 @@ const Approvals = () => {
       setLoans(pageItems)
       setPagination({ page, size, totalElements: all.length })
 
-      // Fetch approval history for visible loans
+      // Fetch latest approval action for each visible loan
       const histMap = {}
       await Promise.allSettled(
         pageItems.map(async (loan) => {
@@ -58,7 +59,7 @@ const Approvals = () => {
       )
       setHistories(histMap)
     } catch (err) {
-      showError(err, 'Failed to load approval queue')
+      showError(err, 'Failed to load approvals')
     } finally {
       setLoading(false)
     }
@@ -66,19 +67,12 @@ const Approvals = () => {
 
   useEffect(() => { fetchLoans(0, 10) }, [fetchLoans])
 
-  const allStatuses = ACTION_STATUSES
   const filtered = search
     ? loans.filter((l) =>
         l.loanNumber?.toLowerCase().includes(search.toLowerCase()) ||
         l.customerName?.toLowerCase().includes(search.toLowerCase())
       )
     : loans
-
-  const STAGE_CARDS = [
-    { label: 'Pending Review', statuses: ['UNDER_REVIEW', 'MANUAL_REVIEW'],                          color: '#d46b08' },
-    { label: 'Approved',       statuses: ['APPROVED', 'DISBURSED', 'ACTIVE', 'OVERDUE', 'NPA', 'CLOSED'], color: '#52c41a' },
-    { label: 'Rejected',       statuses: ['REJECTED'],                                                color: '#f5222d' },
-  ]
 
   const columns = [
     {
@@ -114,13 +108,13 @@ const Approvals = () => {
       render: (v) => <span style={{ fontWeight: 600 }}>{formatCurrency(v, 0)}</span>,
     },
     {
-      title: 'Status',
+      title: 'Loan Status',
       dataIndex: 'loanStatusCode',
       key: 'loanStatusCode',
       render: (v) => <LoanStatusTag status={v} />,
     },
     {
-      title: 'Action',
+      title: 'Decision',
       key: 'action',
       align: 'center',
       render: (_, row) => {
@@ -133,7 +127,7 @@ const Approvals = () => {
     },
     {
       title: 'Actioned By',
-      key: 'approvedBy',
+      key: 'actionedBy',
       render: (_, row) => {
         const h = histories[row.loanNumber]
         return h
@@ -145,7 +139,7 @@ const Approvals = () => {
       },
     },
     {
-      title: 'Action Date',
+      title: 'Decision Date',
       key: 'actionDate',
       render: (_, row) => {
         const h = histories[row.loanNumber]
@@ -165,9 +159,7 @@ const Approvals = () => {
       <PageHeader
         title="Approvals / Rejections"
         subtitle="Loan approval queue — pending review, approved and rejected decisions"
-        breadcrumbs={[{ label: 'LOS' }, { label: 'Approvals' }]}
       />
-
 
       <Row gutter={12} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={8} md={6}>
@@ -179,8 +171,8 @@ const Approvals = () => {
           />
         </Col>
         <Col xs={24} sm={8} md={5}>
-          <Select placeholder="Status" allowClear style={{ width: '100%' }}
-            value={statusFilter?.[0]} onChange={(v) => setStatusFilter(v ? [v] : null)}>
+          <Select placeholder="Filter by status" allowClear style={{ width: '100%' }}
+            value={statusFilter} onChange={(v) => setStatusFilter(v || null)}>
             <Select.Option value="UNDER_REVIEW">Under Review</Select.Option>
             <Select.Option value="MANUAL_REVIEW">Manual Review</Select.Option>
             <Select.Option value="APPROVED">Approved</Select.Option>
@@ -198,10 +190,10 @@ const Approvals = () => {
         pagination={pagination}
         onPageChange={(page, size) => fetchLoans(page, size)}
         onRow={(row) => ({
-          onClick: () => navigate('/los/applications/' + row.loanNumber),
+          onClick: () => navigate('/los/applications/' + row.loanNumber + '?tab=approval'),
           style: { cursor: 'pointer' },
         })}
-        scroll={{ x: 1100 }}
+        scroll={{ x: 1000 }}
       />
     </>
   )
