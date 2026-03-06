@@ -20,7 +20,6 @@ import NewLoan from './pages/los/NewLoan'
 import LoanDetail from './pages/los/LoanDetail'
 import CreditAssessments from './pages/los/CreditAssessments'
 import Approvals from './pages/los/Approvals'
-import LOSDisbursements from './pages/los/Disbursements'
 import LOSDocuments from './pages/los/Documents'
 import LOSCollaterals from './pages/los/Collaterals'
 
@@ -91,7 +90,6 @@ const App = () => {
         <Route path="/los/applications/:loanNumber" element={<LoanDetail />} />
         <Route path="/los/credit-assessments" element={<CreditAssessments />} />
         <Route path="/los/approvals" element={<Approvals />} />
-        <Route path="/los/disbursements" element={<LOSDisbursements />} />
         <Route path="/los/documents" element={<LOSDocuments />} />
         <Route path="/los/collaterals" element={<LOSCollaterals />} />
 

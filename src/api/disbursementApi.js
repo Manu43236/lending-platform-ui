@@ -1,6 +1,9 @@
 import api from './axios'
 
 export const disbursementApi = {
+  // Get all disbursements (paginated)
+  getAll: (params) => api.get('/api/disbursements', { params }),
+
   // Process disbursement
   process: (data) => api.post('/api/disbursements', data),
 

@@ -147,11 +147,22 @@ const OverviewTab = ({ loan }) => (
 
 // ── Documents Tab ─────────────────────────────────────────────────────────────
 const DocumentsTab = ({ loanNumber }) => {
+  const { user } = useAuthStore()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [docTypes, setDocTypes] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadForm] = Form.useForm()
+
+  // Verify/Reject modal
+  const [verifyModal, setVerifyModal] = useState({ open: false, doc: null, action: null })
+  const [verifyForm] = Form.useForm()
+  const [verifying, setVerifying] = useState(false)
+
+  const fetchDocs = async () => {
+    const r = await documentApi.getByLoan(loanNumber, { page: 0, size: 50 })
+    setDocs(r.data?.data?.content || r.data?.data || [])
+  }
 
   useEffect(() => {
     Promise.all([
@@ -174,10 +185,29 @@ const DocumentsTab = ({ loanNumber }) => {
       await documentApi.upload(formData)
       showSuccess('Document uploaded successfully.')
       uploadForm.resetFields()
-      const r = await documentApi.getByLoan(loanNumber, { page: 0, size: 50 })
-      setDocs(r.data?.data?.content || r.data?.data || [])
+      await fetchDocs()
     } catch (err) { showError(err, 'Upload failed') }
     finally { setUploading(false) }
+  }
+
+  const openVerify = (doc, action) => {
+    setVerifyModal({ open: true, doc, action })
+    verifyForm.resetFields()
+  }
+
+  const handleVerify = async (values) => {
+    setVerifying(true)
+    try {
+      await documentApi.verify(verifyModal.doc.documentNumber, {
+        verifiedBy: user?.username || user?.employeeId || 'SYSTEM',
+        uploadStatus: verifyModal.action,
+        verificationNotes: values.verificationNotes || '',
+      })
+      showSuccess(verifyModal.action === 'VERIFIED' ? 'Document verified.' : 'Document rejected.')
+      setVerifyModal({ open: false, doc: null, action: null })
+      await fetchDocs()
+    } catch (err) { showError(err, 'Action failed') }
+    finally { setVerifying(false) }
   }
 
   const columns = [
@@ -201,37 +231,84 @@ const DocumentsTab = ({ loanNumber }) => {
     },
     { title: 'Verified By', dataIndex: 'verifiedBy', key: 'verifiedBy', render: (v) => v || '—' },
     { title: 'Uploaded On', dataIndex: 'createdAt', key: 'createdAt', render: (v) => formatDate(v) },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 160,
+      render: (_, row) => {
+        if (!['UPLOADED', 'PENDING_VERIFICATION'].includes(row.uploadStatus)) return null
+        return (
+          <Space size={4}>
+            <Button type="link" size="small" style={{ color: '#52c41a', padding: 0 }}
+              onClick={() => openVerify(row, 'VERIFIED')}>
+              Verify
+            </Button>
+            <Button type="link" size="small" danger style={{ padding: 0 }}
+              onClick={() => openVerify(row, 'REJECTED')}>
+              Reject
+            </Button>
+          </Space>
+        )
+      },
+    },
   ]
 
   return (
-    <Row gutter={[16, 16]}>
-      <Col span={24}>
-        <Card title="Upload Document" size="small" style={{ borderRadius: 10 }}>
-          <Form form={uploadForm} layout="inline" onFinish={handleUpload}>
-            <Form.Item name="documentTypeCode" rules={[{ required: true }]}>
-              <Select placeholder="Document type" style={{ width: 200 }}>
-                {docTypes.map((d) => <Option key={d.code} value={d.code}>{d.name}</Option>)}
-              </Select>
-            </Form.Item>
-            <Form.Item name="file" rules={[{ required: true, message: 'Select a file' }]}>
-              <Upload beforeUpload={() => false} maxCount={1} accept=".pdf,.jpg,.jpeg,.png">
-                <Button icon={<UploadOutlined />}>Choose File</Button>
-              </Upload>
-            </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" loading={uploading}>Upload</Button>
-            </Form.Item>
-          </Form>
-        </Card>
-      </Col>
-      <Col span={24}>
-        <Card title="Documents" size="small" style={{ borderRadius: 10 }}>
-          <Table columns={columns} dataSource={docs} rowKey="id" size="small"
-            loading={loading} pagination={false}
-            locale={{ emptyText: 'No documents uploaded yet' }} />
-        </Card>
-      </Col>
-    </Row>
+    <>
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <Card title="Upload Document" size="small" style={{ borderRadius: 10 }}>
+            <Form form={uploadForm} layout="inline" onFinish={handleUpload}>
+              <Form.Item name="documentTypeCode" rules={[{ required: true }]}>
+                <Select placeholder="Document type" style={{ width: 200 }}>
+                  {docTypes.map((d) => <Option key={d.code} value={d.code}>{d.name}</Option>)}
+                </Select>
+              </Form.Item>
+              <Form.Item name="file" rules={[{ required: true, message: 'Select a file' }]}>
+                <Upload beforeUpload={() => false} maxCount={1} accept=".pdf,.jpg,.jpeg,.png">
+                  <Button icon={<UploadOutlined />}>Choose File</Button>
+                </Upload>
+              </Form.Item>
+              <Form.Item>
+                <Button type="primary" htmlType="submit" loading={uploading}>Upload</Button>
+              </Form.Item>
+            </Form>
+          </Card>
+        </Col>
+        <Col span={24}>
+          <Card title="Documents" size="small" style={{ borderRadius: 10 }}>
+            <Table columns={columns} dataSource={docs} rowKey="id" size="small"
+              loading={loading} pagination={false}
+              locale={{ emptyText: 'No documents uploaded yet' }} />
+          </Card>
+        </Col>
+      </Row>
+
+      <Modal
+        title={verifyModal.action === 'VERIFIED' ? 'Verify Document' : 'Reject Document'}
+        open={verifyModal.open}
+        onCancel={() => setVerifyModal({ open: false, doc: null, action: null })}
+        onOk={() => verifyForm.submit()}
+        okText={verifyModal.action === 'VERIFIED' ? 'Verify' : 'Reject'}
+        okButtonProps={{ danger: verifyModal.action === 'REJECTED' }}
+        confirmLoading={verifying}
+      >
+        <p style={{ marginBottom: 12 }}>
+          {verifyModal.action === 'VERIFIED'
+            ? <>Verify <strong>{verifyModal.doc?.documentTypeName}</strong>?</>
+            : <>Reject <strong>{verifyModal.doc?.documentTypeName}</strong>? Please provide a reason.</>}
+        </p>
+        <Form form={verifyForm} layout="vertical" onFinish={handleVerify}>
+          <Form.Item
+            label="Notes"
+            name="verificationNotes"
+            rules={verifyModal.action === 'REJECTED' ? [{ required: true, message: 'Rejection reason is required' }] : []}
+          >
+            <Input.TextArea rows={3} placeholder={verifyModal.action === 'REJECTED' ? 'Reason for rejection...' : 'Optional notes...'} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
   )
 }
 
@@ -239,16 +316,23 @@ const DocumentsTab = ({ loanNumber }) => {
 const AssessmentTab = ({ loanNumber, loanStatus, onStatusChange }) => {
   const { user } = useAuthStore()
   const [assessment, setAssessment] = useState(null)
+  const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
 
   useEffect(() => {
-    creditAssessmentApi.getByLoanNumber(loanNumber)
-      .then((r) => setAssessment(r.data?.data))
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      creditAssessmentApi.getByLoanNumber(loanNumber).catch(() => ({ data: { data: null } })),
+      documentApi.getByLoan(loanNumber, { page: 0, size: 50 }).catch(() => ({ data: { data: null } })),
+    ]).then(([assessRes, docsRes]) => {
+      setAssessment(assessRes.data?.data)
+      setDocs(docsRes.data?.data?.content || docsRes.data?.data || [])
+    }).finally(() => setLoading(false))
   }, [loanNumber])
+
+  const unverifiedDocs = docs.filter((d) => d.uploadStatus !== 'VERIFIED')
+  const docsReady = docs.length > 0 && unverifiedDocs.length === 0
 
   const handleAssess = async (values) => {
     setSubmitting(true)
@@ -272,22 +356,35 @@ const AssessmentTab = ({ loanNumber, loanStatus, onStatusChange }) => {
       {/* Form — only shown for INITIATED loans with no assessment yet */}
       {!assessment && loanStatus === 'INITIATED' && (
         <Col span={24}>
-          <Card title="Run Credit Assessment" size="small" style={{ borderRadius: 10 }}>
-            <Form form={form} layout="vertical" onFinish={handleAssess} style={{ maxWidth: 400 }}>
-              <Form.Item
-                label="Existing EMI Obligations (₹)"
-                name="existingEmiObligations"
-                help="Total of all existing loan EMIs the customer is currently paying"
-              >
-                <InputNumber min={0} placeholder="0" style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
-              </Form.Item>
-              <Form.Item>
-                <Button type="primary" htmlType="submit" loading={submitting} icon={<AuditOutlined />}>
-                  Run Assessment
-                </Button>
-              </Form.Item>
-            </Form>
-          </Card>
+          {!docsReady ? (
+            <Alert
+              type="warning"
+              showIcon
+              message="Documents not ready for assessment"
+              description={
+                docs.length === 0
+                  ? 'No documents uploaded. Upload and verify all required documents before running credit assessment.'
+                  : `${unverifiedDocs.length} document(s) are pending verification. All documents must be verified before credit assessment can proceed.`
+              }
+            />
+          ) : (
+            <Card title="Run Credit Assessment" size="small" style={{ borderRadius: 10 }}>
+              <Form form={form} layout="vertical" onFinish={handleAssess} style={{ maxWidth: 400 }}>
+                <Form.Item
+                  label="Existing EMI Obligations (₹)"
+                  name="existingEmiObligations"
+                  help="Total of all existing loan EMIs the customer is currently paying"
+                >
+                  <InputNumber min={0} placeholder="0" style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+                </Form.Item>
+                <Form.Item>
+                  <Button type="primary" htmlType="submit" loading={submitting} icon={<AuditOutlined />}>
+                    Run Assessment
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Card>
+          )}
         </Col>
       )}
 
@@ -479,7 +576,6 @@ const DisbursementTab = ({ loan, onStatusChange }) => {
   const [disbursement, setDisbursement] = useState(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
-  const [scheduling, setScheduling] = useState(false)
   const [form] = Form.useForm()
 
   useEffect(() => {
@@ -502,16 +598,6 @@ const DisbursementTab = ({ loan, onStatusChange }) => {
       onStatusChange()
     } catch (err) { showError(err, 'Disbursement failed') }
     finally { setProcessing(false) }
-  }
-
-  const handleScheduleEmis = async () => {
-    setScheduling(true)
-    try {
-      await disbursementApi.scheduleEmis(loan.loanNumber)
-      showSuccess('EMI schedule generated successfully.')
-      onStatusChange()
-    } catch (err) { showError(err, 'Failed to schedule EMIs') }
-    finally { setScheduling(false) }
   }
 
   if (loading) return <Spin />

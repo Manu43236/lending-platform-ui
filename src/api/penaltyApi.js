@@ -1,6 +1,9 @@
 import api from './axios'
 
 export const penaltyApi = {
+  // Get all penalties (paginated)
+  getAll: (params) => api.get('/api/penalties', { params }),
+
   // Apply penalty
   apply: (emiScheduleId, penaltyCode) =>
     api.post('/api/penalties/apply', null, {

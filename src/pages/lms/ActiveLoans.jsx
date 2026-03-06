@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Input, Select, Tag, Space, Row, Col, Card } from 'antd'
+import { Input, Select, Tag, Space, Row, Col, Card, Tooltip } from 'antd'
 import { SearchOutlined, WarningFilled } from '@ant-design/icons'
 import PageHeader from '../../components/PageHeader'
 import DataTable from '../../components/DataTable'
@@ -11,7 +11,7 @@ import { showError } from '../../utils/errorHandler'
 
 const { Option } = Select
 
-const PORTFOLIO_STATUSES = ['ACTIVE', 'OVERDUE', 'NPA']
+const PORTFOLIO_STATUSES = ['DISBURSED', 'CURRENT', 'ACTIVE', 'OVERDUE', 'NPA']
 
 const DPD_BUCKET = (dpd) => {
   if (!dpd || dpd === 0) return { label: 'Current', color: '#52c41a', bg: '#f6ffed' }
@@ -48,44 +48,19 @@ const ActiveLoans = () => {
   const [statusFilter, setStatusFilter] = useState(null)
   const [search, setSearch] = useState('')
 
-  // Portfolio summary counts
-  useEffect(() => {
-    Promise.all(
-      PORTFOLIO_STATUSES.map((s) => loanApi.getAll({ page: 0, size: 500, status: s }))
-    )
-      .then((results) => {
-        const combined = results.flatMap((r) => r.data?.data?.content || [])
-        setAllLoans(combined)
-      })
-      .catch(() => {})
-  }, [])
-
   const fetchLoans = useCallback(async (page = 0, size = 10) => {
     setLoading(true)
     try {
-      const status = statusFilter || undefined
-      const params = { page, size, ...(status ? { status } : {}) }
-      // If no status filter, fetch all portfolio statuses
-      if (!status) {
-        // Fetch ACTIVE + OVERDUE + NPA together via multiple calls and merge
-        const [active, overdue, npa] = await Promise.all(
-          PORTFOLIO_STATUSES.map((s) => loanApi.getAll({ page: 0, size: 500, status: s }))
-        )
-        const combined = [
-          ...(active.data?.data?.content || []),
-          ...(overdue.data?.data?.content || []),
-          ...(npa.data?.data?.content || []),
-        ]
-        combined.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        const start = page * size
-        setLoans(combined.slice(start, start + size))
-        setPagination({ page, size, totalElements: combined.length })
-      } else {
-        const res = await loanApi.getAll(params)
-        const data = res.data?.data
-        setLoans(data?.content || [])
-        setPagination({ page: data?.page ?? 0, size: data?.size ?? size, totalElements: data?.totalElements ?? 0 })
-      }
+      const res = await loanApi.getAll({ page: 0, size: 500 })
+      const all = (res.data?.data?.content || [])
+        .filter((l) => PORTFOLIO_STATUSES.includes(l.loanStatusCode))
+      all.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      setAllLoans(all)
+
+      const filtered = statusFilter ? all.filter((l) => l.loanStatusCode === statusFilter) : all
+      const start = page * size
+      setLoans(filtered.slice(start, start + size))
+      setPagination({ page, size, totalElements: filtered.length })
     } catch (err) {
       showError(err, 'Failed to load portfolio loans')
     } finally {
@@ -93,26 +68,28 @@ const ActiveLoans = () => {
     }
   }, [statusFilter])
 
-  useEffect(() => {
-    fetchLoans(0, 10)
-  }, [statusFilter]) // eslint-disable-line
+  useEffect(() => { fetchLoans(0, 10) }, [fetchLoans])
 
   const portfolioStats = {
+    disbursed:     allLoans.filter((l) => l.loanStatusCode === 'DISBURSED').length,
+    current:       allLoans.filter((l) => l.loanStatusCode === 'CURRENT').length,
     active:        allLoans.filter((l) => l.loanStatusCode === 'ACTIVE').length,
     overdue:       allLoans.filter((l) => l.loanStatusCode === 'OVERDUE').length,
     npa:           allLoans.filter((l) => l.loanStatusCode === 'NPA').length,
     totalAum:      allLoans.reduce((s, l) => s + (l.outstandingAmount || 0), 0),
-    totalOverdue:  allLoans.filter((l) => l.loanStatusCode !== 'ACTIVE').reduce((s, l) => s + (l.totalOverdueAmount || 0), 0),
+    totalOverdue:  allLoans.filter((l) => l.loanStatusCode === 'OVERDUE' || l.loanStatusCode === 'NPA').reduce((s, l) => s + (l.totalOverdueAmount || 0), 0),
   }
   const par = portfolioStats.totalAum > 0
     ? ((portfolioStats.totalOverdue / portfolioStats.totalAum) * 100).toFixed(2)
     : '0.00'
 
   const SUMMARY_CARDS = [
-    { label: 'Active',       value: portfolioStats.active,  color: '#52c41a', filter: 'ACTIVE' },
-    { label: 'Overdue',      value: portfolioStats.overdue, color: '#fa8c16', filter: 'OVERDUE' },
-    { label: 'NPA',          value: portfolioStats.npa,     color: '#f5222d', filter: 'NPA' },
-    { label: 'Total AUM',    value: formatCurrency(portfolioStats.totalAum, 0), color: '#1890ff', filter: null },
+    { label: 'Disbursed',    value: portfolioStats.disbursed, color: '#1890ff', filter: 'DISBURSED' },
+    { label: 'Current',      value: portfolioStats.current,   color: '#13c2c2', filter: 'CURRENT' },
+    { label: 'Active',       value: portfolioStats.active,    color: '#52c41a', filter: 'ACTIVE' },
+    { label: 'Overdue',      value: portfolioStats.overdue,   color: '#fa8c16', filter: 'OVERDUE' },
+    { label: 'NPA',          value: portfolioStats.npa,       color: '#f5222d', filter: 'NPA' },
+    { label: 'Total AUM',    value: formatCurrency(portfolioStats.totalAum, 0), color: '#722ed1', filter: null },
     { label: 'Overdue Amt',  value: formatCurrency(portfolioStats.totalOverdue, 0), color: '#fa8c16', filter: null },
     { label: 'PAR %',        value: par + '%', color: portfolioStats.totalOverdue > 0 ? '#f5222d' : '#52c41a', filter: null },
   ]
