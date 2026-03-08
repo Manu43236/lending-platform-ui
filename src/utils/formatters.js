@@ -32,22 +32,32 @@ export const formatPercent = (value, decimals = 2) => {
   return `${Number(value).toFixed(decimals)}%`
 }
 
+// Treat server timestamps (LocalDateTime, no tz) as UTC → convert to local browser time
+const toLocal = (date) => {
+  if (!date || typeof date !== 'string') return date
+  // If already has tz info (Z, +XX:XX) don't append again
+  if (date.endsWith('Z') || date.includes('+') || /[+-]\d{2}:\d{2}$/.test(date)) return date
+  // Date-only values (YYYY-MM-DD) don't need UTC conversion
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date
+  return date + 'Z'
+}
+
 // Date — DD MMM YYYY (e.g. 05 Mar 2026)
 export const formatDate = (date) => {
   if (!date) return '—'
-  return dayjs(date).format('DD MMM YYYY')
+  return dayjs(toLocal(date)).format('DD MMM YYYY')
 }
 
 // Date Time — DD MMM YYYY, hh:mm A
 export const formatDateTime = (date) => {
   if (!date) return '—'
-  return dayjs(date).format('DD MMM YYYY, hh:mm A')
+  return dayjs(toLocal(date)).format('DD MMM YYYY, hh:mm A')
 }
 
 // Relative time — e.g. "2 days ago"
 export const formatRelativeTime = (date) => {
   if (!date) return '—'
-  return dayjs(date).fromNow()
+  return dayjs(toLocal(date)).fromNow()
 }
 
 // Tenure — months to readable
