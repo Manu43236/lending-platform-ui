@@ -17,9 +17,12 @@ export const masterApi = {
   getTenures: (loanTypeCode) =>
     api.get('/api/masters/tenures', { params: { loanTypeCode } }),
 
-  // Processing fee config
+  // Processing fee config by loan type
   getProcessingFeeConfig: (loanTypeCode) =>
-    api.get('/api/masters/processing-fee', { params: { loanTypeCode } }),
+    api.get(`/api/masters/processing-fee/${loanTypeCode}`),
+
+  // All processing fee configs
+  getAllProcessingFees: () => api.get('/api/masters/processing-fees'),
 
   // All interest rate configs
   getInterestRates: () => api.get('/api/masters/interest-rates'),

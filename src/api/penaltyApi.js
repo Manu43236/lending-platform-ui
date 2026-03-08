@@ -1,7 +1,10 @@
 import api from './axios'
 
 export const penaltyApi = {
-  // Get all penalties (paginated)
+  // Get penalty type configs
+  getConfigs: () => api.get('/api/penalties/configs'),
+
+  // Get all applied penalties (paginated)
   getAll: (params) => api.get('/api/penalties', { params }),
 
   // Apply penalty
