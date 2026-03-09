@@ -77,13 +77,14 @@ const Login = () => {
   const slide = slides[current]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#fff', alignItems: 'center' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(to right, #EEF2FF 0%, #EEF2FF 40%, #ffffff 70%, #ffffff 100%)' }}>
 
       {/* Left 60% — Product intro */}
       <div style={{
         flex: '0 0 60%',
         position: 'relative',
         height: '100vh',
+        background: 'transparent',
       }}>
         {/* Logo — absolutely pinned, never moves */}
         <div style={{
@@ -169,15 +170,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Center divider */}
-      <div style={{
-        flexShrink: 0,
-        width: 1,
-        height: '75vh',
-        background: 'linear-gradient(to bottom, transparent, #4a9eff 20%, #1B3A6B 50%, #4a9eff 80%, transparent)',
-        boxShadow: '0 0 8px 1px rgba(74,158,255,0.45)',
-        borderRadius: 1,
-      }} />
 
       {/* Right 40% — Login form */}
       <div style={{
