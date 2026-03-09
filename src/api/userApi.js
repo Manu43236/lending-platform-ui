@@ -31,4 +31,9 @@ export const userApi = {
   // Remove role
   removeRole: (employeeId, roleCode) =>
     api.delete(`/api/users/${employeeId}/roles/${roleCode}`),
+
+  // Profile
+  getMyProfile: () => api.get('/api/profile/me'),
+  updateMyProfile: (data) => api.put('/api/profile/me', data),
+  changePassword: (data) => api.put('/api/profile/me/change-password', data),
 }
