@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import RoleGuard from './routes/RoleGuard'
 import AppLayout from './layouts/AppLayout'
 import AuthLayout from './layouts/AuthLayout'
+import { ROLES, APPROVER_ROLES, MANAGEMENT_ROLES } from './utils/constants'
 
 // Auth
 import Login from './pages/auth/Login'
@@ -81,31 +83,31 @@ const App = () => {
 
         {/* Customers */}
         <Route path="/customers" element={<Customers />} />
-        <Route path="/customers/new" element={<NewCustomer />} />
+        <Route path="/customers/new" element={<RoleGuard allowedRoles={[ROLES.LOAN_OFFICER, ROLES.ADMIN]}><NewCustomer /></RoleGuard>} />
         <Route path="/customers/:id" element={<CustomerDetail />} />
 
         {/* LOS - Loan Origination */}
         <Route path="/los/applications" element={<Applications />} />
-        <Route path="/los/applications/new" element={<NewLoan />} />
+        <Route path="/los/applications/new" element={<RoleGuard allowedRoles={[ROLES.LOAN_OFFICER, ROLES.ADMIN]}><NewLoan /></RoleGuard>} />
         <Route path="/los/applications/:loanNumber" element={<LoanDetail />} />
-        <Route path="/los/credit-assessments" element={<CreditAssessments />} />
-        <Route path="/los/approvals" element={<Approvals />} />
+        <Route path="/los/credit-assessments" element={<RoleGuard allowedRoles={[ROLES.CREDIT_ANALYST, ROLES.CREDIT_MANAGER, ROLES.ADMIN]}><CreditAssessments /></RoleGuard>} />
+        <Route path="/los/approvals" element={<RoleGuard allowedRoles={APPROVER_ROLES}><Approvals /></RoleGuard>} />
         <Route path="/los/documents" element={<LOSDocuments />} />
-        <Route path="/los/collaterals" element={<LOSCollaterals />} />
+        <Route path="/los/collaterals" element={<RoleGuard allowedRoles={[ROLES.CREDIT_ANALYST, ROLES.RISK_MANAGER, ROLES.OPERATIONS_MANAGER, ROLES.ADMIN]}><LOSCollaterals /></RoleGuard>} />
 
         {/* LMS - Loan Management */}
         <Route path="/lms/active-loans" element={<ActiveLoans />} />
         <Route path="/lms/emi-schedule" element={<EmiSchedule />} />
         <Route path="/lms/payments" element={<Payments />} />
-        <Route path="/lms/closure" element={<LoanClosure />} />
+        <Route path="/lms/closure" element={<RoleGuard allowedRoles={MANAGEMENT_ROLES}><LoanClosure /></RoleGuard>} />
 
         {/* Disbursements */}
-        <Route path="/disbursements" element={<Disbursements />} />
+        <Route path="/disbursements" element={<RoleGuard allowedRoles={[ROLES.OPERATIONS_MANAGER, ROLES.ADMIN]}><Disbursements /></RoleGuard>} />
 
         {/* Collections */}
         <Route path="/collections/overdue" element={<OverdueLoans />} />
         <Route path="/collections/dpd-buckets" element={<DPDBuckets />} />
-        <Route path="/collections/penalties" element={<Penalties />} />
+        <Route path="/collections/penalties" element={<RoleGuard allowedRoles={[ROLES.OPERATIONS_MANAGER, ROLES.RISK_MANAGER, ...MANAGEMENT_ROLES]}><Penalties /></RoleGuard>} />
         <Route path="/collections/npa" element={<NPA />} />
 
         {/* Advices */}
@@ -116,19 +118,19 @@ const App = () => {
         <Route path="/fees" element={<Fees />} />
 
         {/* EOD */}
-        <Route path="/eod" element={<EOD />} />
+        <Route path="/eod" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><EOD /></RoleGuard>} />
 
         {/* Reports */}
-        <Route path="/reports/disbursement" element={<DisbursementReport />} />
-        <Route path="/reports/collection" element={<CollectionReport />} />
-        <Route path="/reports/outstanding" element={<OutstandingReport />} />
-        <Route path="/reports/dpd-npa" element={<DPDNpaReport />} />
-        <Route path="/reports/mis" element={<MISReport />} />
+        <Route path="/reports/disbursement" element={<RoleGuard allowedRoles={[ROLES.RISK_MANAGER, ROLES.COMPLIANCE_OFFICER, ...MANAGEMENT_ROLES]}><DisbursementReport /></RoleGuard>} />
+        <Route path="/reports/collection" element={<RoleGuard allowedRoles={[ROLES.RISK_MANAGER, ROLES.COMPLIANCE_OFFICER, ...MANAGEMENT_ROLES]}><CollectionReport /></RoleGuard>} />
+        <Route path="/reports/outstanding" element={<RoleGuard allowedRoles={[ROLES.RISK_MANAGER, ROLES.COMPLIANCE_OFFICER, ...MANAGEMENT_ROLES]}><OutstandingReport /></RoleGuard>} />
+        <Route path="/reports/dpd-npa" element={<RoleGuard allowedRoles={[ROLES.RISK_MANAGER, ROLES.COMPLIANCE_OFFICER, ...MANAGEMENT_ROLES]}><DPDNpaReport /></RoleGuard>} />
+        <Route path="/reports/mis" element={<RoleGuard allowedRoles={[ROLES.RISK_MANAGER, ROLES.COMPLIANCE_OFFICER, ...MANAGEMENT_ROLES]}><MISReport /></RoleGuard>} />
 
         {/* Admin */}
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/roles" element={<AdminRoles />} />
-        <Route path="/admin/masters" element={<AdminMasters />} />
+        <Route path="/admin/users" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminUsers /></RoleGuard>} />
+        <Route path="/admin/roles" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminRoles /></RoleGuard>} />
+        <Route path="/admin/masters" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminMasters /></RoleGuard>} />
       </Route>
 
       {/* Fallback */}

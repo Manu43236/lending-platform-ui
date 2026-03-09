@@ -18,6 +18,7 @@ import {
   CreditCardOutlined,
 } from '@ant-design/icons'
 import useAuthStore from '../../store/authStore'
+import { ROLES, APPROVER_ROLES, MANAGEMENT_ROLES } from '../../utils/constants'
 import finpulseLogo from '../../assets/finpuls-logo.png'
 
 const { Header, Sider, Content } = Layout
@@ -31,27 +32,37 @@ const AppLayout = () => {
 
   const userRoles = user?.roles?.map((r) => r.roleCode) || []
 
-  const menuItems = [
+  // Returns true if user has at least one of the required roles (null = open to all)
+  const canAccess = (allowedRoles) =>
+    !allowedRoles || allowedRoles.some((r) => userRoles.includes(r))
+
+  // Filter child items, then hide parent if no children remain
+  const filterChildren = (children) =>
+    children.filter((c) => canAccess(c.roles))
+
+  const allMenuItems = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
       label: 'Dashboard',
+      roles: null,
     },
     {
       key: '/customers',
       icon: <UserOutlined />,
       label: 'Customers',
+      roles: null,
     },
     {
       key: 'los',
       icon: <FileTextOutlined />,
       label: 'LOS',
       children: [
-        { key: '/los/applications',         label: 'Loan Applications'    },
-        { key: '/los/credit-assessments',   label: 'Credit Assessments'  },
-        { key: '/los/approvals',            label: 'Approvals / Rejections' },
-        { key: '/los/documents',            label: 'Documents'            },
-        { key: '/los/collaterals',          label: 'Collaterals'          },
+        { key: '/los/applications',       label: 'Loan Applications',     roles: null },
+        { key: '/los/credit-assessments', label: 'Credit Assessments',    roles: [ROLES.CREDIT_ANALYST, ROLES.CREDIT_MANAGER, ROLES.ADMIN] },
+        { key: '/los/approvals',          label: 'Approvals / Rejections',roles: APPROVER_ROLES },
+        { key: '/los/documents',          label: 'Documents',             roles: null },
+        { key: '/los/collaterals',        label: 'Collaterals',           roles: [ROLES.CREDIT_ANALYST, ROLES.RISK_MANAGER, ROLES.OPERATIONS_MANAGER, ROLES.ADMIN] },
       ],
     },
     {
@@ -59,26 +70,27 @@ const AppLayout = () => {
       icon: <BankOutlined />,
       label: 'LMS',
       children: [
-        { key: '/lms/active-loans', label: 'Active Loans' },
-        { key: '/lms/emi-schedule', label: 'EMI Schedule' },
-        { key: '/lms/payments', label: 'Payments' },
-        { key: '/lms/closure', label: 'Loan Closure' },
+        { key: '/lms/active-loans', label: 'Active Loans',  roles: null },
+        { key: '/lms/emi-schedule', label: 'EMI Schedule',  roles: null },
+        { key: '/lms/payments',     label: 'Payments',      roles: null },
+        { key: '/lms/closure',      label: 'Loan Closure',  roles: MANAGEMENT_ROLES },
       ],
     },
     {
       key: '/disbursements',
       icon: <DollarOutlined />,
       label: 'Disbursements',
+      roles: [ROLES.OPERATIONS_MANAGER, ROLES.ADMIN],
     },
     {
       key: 'collections',
       icon: <WarningOutlined />,
       label: 'Collections',
       children: [
-        { key: '/collections/overdue', label: 'Overdue Loans' },
-        { key: '/collections/dpd-buckets', label: 'DPD Buckets' },
-        { key: '/collections/penalties', label: 'Penalties' },
-        { key: '/collections/npa', label: 'NPA Accounts' },
+        { key: '/collections/overdue',      label: 'Overdue Loans', roles: null },
+        { key: '/collections/dpd-buckets',  label: 'DPD Buckets',   roles: null },
+        { key: '/collections/penalties',    label: 'Penalties',     roles: [ROLES.OPERATIONS_MANAGER, ROLES.RISK_MANAGER, ...MANAGEMENT_ROLES] },
+        { key: '/collections/npa',          label: 'NPA Accounts',  roles: null },
       ],
     },
     {
@@ -86,43 +98,58 @@ const AppLayout = () => {
       icon: <CreditCardOutlined />,
       label: 'Advices',
       children: [
-        { key: '/advices/receivables', label: 'Receivables' },
-        { key: '/advices/payables', label: 'Payables' },
+        { key: '/advices/receivables', label: 'Receivables', roles: null },
+        { key: '/advices/payables',    label: 'Payables',    roles: null },
       ],
     },
     {
       key: '/fees',
       icon: <AuditOutlined />,
       label: 'Fees & Charges',
+      roles: null,
     },
     {
       key: '/eod',
       icon: <ClockCircleOutlined />,
       label: 'EOD',
+      roles: [ROLES.ADMIN],
     },
     {
       key: 'reports',
       icon: <BarChartOutlined />,
       label: 'Reports',
+      roles: [ROLES.RISK_MANAGER, ROLES.COMPLIANCE_OFFICER, ...MANAGEMENT_ROLES],
       children: [
-        { key: '/reports/disbursement', label: 'Disbursement' },
-        { key: '/reports/collection', label: 'Collection' },
-        { key: '/reports/outstanding', label: 'Outstanding' },
-        { key: '/reports/dpd-npa', label: 'DPD / NPA' },
-        { key: '/reports/mis', label: 'MIS' },
+        { key: '/reports/disbursement', label: 'Disbursement', roles: null },
+        { key: '/reports/collection',   label: 'Collection',   roles: null },
+        { key: '/reports/outstanding',  label: 'Outstanding',  roles: null },
+        { key: '/reports/dpd-npa',      label: 'DPD / NPA',    roles: null },
+        { key: '/reports/mis',          label: 'MIS',          roles: null },
       ],
     },
     {
       key: 'admin',
       icon: <SettingOutlined />,
       label: 'Admin',
+      roles: [ROLES.ADMIN],
       children: [
-        { key: '/admin/users', label: 'Users' },
-        { key: '/admin/roles', label: 'Roles' },
-        { key: '/admin/masters', label: 'Masters' },
+        { key: '/admin/users',    label: 'Users',    roles: null },
+        { key: '/admin/roles',    label: 'Roles',    roles: null },
+        { key: '/admin/masters',  label: 'Masters',  roles: null },
       ],
     },
   ]
+
+  // Build filtered menu — hide items user can't access, hide parent if all children hidden
+  const menuItems = allMenuItems
+    .filter((item) => canAccess(item.roles))
+    .map((item) => {
+      if (!item.children) return item
+      const visibleChildren = filterChildren(item.children)
+      if (visibleChildren.length === 0) return null
+      return { ...item, children: visibleChildren }
+    })
+    .filter(Boolean)
 
   const userMenuItems = [
     {
