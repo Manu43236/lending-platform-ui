@@ -27,6 +27,9 @@ export const masterApi = {
   // All interest rate configs
   getInterestRates: () => api.get('/api/masters/interest-rates'),
 
+  // Tenures for a loan type
+  getTenuresByLoanType: (loanTypeCode) => api.get(`/api/masters/tenures/${loanTypeCode}`),
+
   // Applicable interest rate
   getApplicableRate: (params) =>
     api.get('/api/masters/interest-rate', { params }),
