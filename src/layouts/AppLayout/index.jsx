@@ -174,22 +174,18 @@ const AppLayout = () => {
         {/* Logo */}
         <div style={{
           height: 64,
+          background: '#fff',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          padding: collapsed ? '0' : '0 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          justifyContent: 'center',
+          padding: '0 16px',
+          borderBottom: '1px solid #e8e8e8',
         }}>
-          {collapsed ? (
-            <img src={finpulseLogo} alt="FinPulse" style={{ height: 32, objectFit: 'contain' }} />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <img src={finpulseLogo} alt="FinPulse" style={{ height: 36, objectFit: 'contain' }} />
-              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, letterSpacing: 1, marginTop: 2 }}>
-                - The Lending Echosystem -
-              </Text>
-            </div>
-          )}
+          <img
+            src={finpulseLogo}
+            alt="FinPulse"
+            style={{ height: collapsed ? 30 : 36, objectFit: 'contain', display: 'block' }}
+          />
         </div>
 
         <Menu
