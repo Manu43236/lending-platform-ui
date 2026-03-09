@@ -18,6 +18,7 @@ import {
   CreditCardOutlined,
 } from '@ant-design/icons'
 import useAuthStore from '../../store/authStore'
+import finpulseLogo from '../../assets/finpuls-logo.png'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
@@ -176,14 +177,18 @@ const AppLayout = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
-          padding: collapsed ? '0' : '0 20px',
+          padding: collapsed ? '0' : '0 16px',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
         }}>
-          <BankOutlined style={{ fontSize: 24, color: '#fff' }} />
-          {!collapsed && (
-            <Text strong style={{ color: '#fff', marginLeft: 10, fontSize: 16 }}>
-              Money Moment
-            </Text>
+          {collapsed ? (
+            <img src={finpulseLogo} alt="FinPulse" style={{ height: 32, objectFit: 'contain' }} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <img src={finpulseLogo} alt="FinPulse" style={{ height: 36, objectFit: 'contain' }} />
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, letterSpacing: 1, marginTop: 2 }}>
+                - The Lending Echosystem -
+              </Text>
+            </div>
           )}
         </div>
 

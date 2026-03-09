@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, Form, Input, Button, Typography, Alert, Space } from 'antd'
-import { UserOutlined, LockOutlined, BankOutlined } from '@ant-design/icons'
+import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { authApi } from '../../api/authApi'
 import useAuthStore from '../../store/authStore'
 import { getErrorMessage } from '../../utils/errorHandler'
+import finpulseLogo from '../../assets/finpuls-logo.png'
 
 const { Title, Text } = Typography
 
@@ -41,19 +42,9 @@ const Login = () => {
     >
       {/* Logo & Title */}
       <Space direction="vertical" align="center" style={{ width: '100%', marginBottom: 32 }}>
-        <div style={{
-          width: 56,
-          height: 56,
-          borderRadius: 12,
-          background: '#1B3A6B',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <BankOutlined style={{ fontSize: 28, color: '#fff' }} />
-        </div>
-        <Title level={3} style={{ margin: 0, color: '#1B3A6B' }}>Money Moment</Title>
-        <Text type="secondary">Lending Platform</Text>
+        <img src={finpulseLogo} alt="FinPulse" style={{ height: 56, objectFit: 'contain' }} />
+        <Title level={3} style={{ margin: '8px 0 0', color: '#1B3A6B' }}>FinPulse</Title>
+        <Text type="secondary" style={{ fontSize: 12, letterSpacing: 1 }}>- The Lending Echosystem -</Text>
       </Space>
 
       {error && (
