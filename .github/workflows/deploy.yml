@@ -30,7 +30,7 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          echo "$SSH_KEY" > /tmp/ec2_key.pem
+          printf '%s' "$SSH_KEY" > /tmp/ec2_key.pem
           chmod 400 /tmp/ec2_key.pem
           ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem \
             ubuntu@3.108.56.58 "mkdir -p /tmp/finpulse-deploy"
