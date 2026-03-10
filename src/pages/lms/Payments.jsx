@@ -9,6 +9,7 @@ import PageHeader from '../../components/PageHeader'
 import DataTable from '../../components/DataTable'
 import { loanApi } from '../../api/loanApi'
 import { emiPaymentApi } from '../../api/emiPaymentApi'
+import { penaltyApi } from '../../api/penaltyApi'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 import { showError, showSuccess } from '../../utils/errorHandler'
 
@@ -280,6 +281,7 @@ const ProcessPayment = () => {
   const [loading, setLoading]         = useState(false)
   const [submitting, setSubmitting]   = useState(false)
   const [searched, setSearched]       = useState(false)
+  const [penalties, setPenalties]         = useState([])
   const [worklistLoans, setWorklistLoans] = useState([])
   const [worklistLoading, setWorklistLoading] = useState(false)
   const [form] = Form.useForm()
@@ -307,12 +309,15 @@ const ProcessPayment = () => {
     setSearched(true)
     setSearch(loanNumber)
     try {
-      const [loanRes, scheduleRes] = await Promise.all([
+      const [loanRes, scheduleRes, penaltyRes] = await Promise.all([
         loanApi.getByLoanNumber(loanNumber),
         loanApi.getEmiSchedule(loanNumber),
+        penaltyApi.getByLoan(loanNumber, { page: 0, size: 200 }),
       ])
       setLoan(loanRes.data?.data)
       setSchedule(scheduleRes.data?.data || [])
+      const allPenalties = penaltyRes.data?.data?.content || penaltyRes.data?.data || []
+      setPenalties(allPenalties.filter((p) => !p.isPaid && !p.isWaived))
     } catch {
       setLoan(null)
       setSchedule([])
@@ -341,12 +346,15 @@ const ProcessPayment = () => {
       })
       showSuccess('Payment processed successfully.')
       form.resetFields()
-      const [scheduleRes, loanRes] = await Promise.all([
+      const [scheduleRes, loanRes, penaltyRes] = await Promise.all([
         loanApi.getEmiSchedule(loan.loanNumber),
         loanApi.getByLoanNumber(loan.loanNumber),
+        penaltyApi.getByLoan(loan.loanNumber, { page: 0, size: 200 }),
       ])
       setSchedule(scheduleRes.data?.data || [])
       setLoan(loanRes.data?.data)
+      const allPenalties = penaltyRes.data?.data?.content || penaltyRes.data?.data || []
+      setPenalties(allPenalties.filter((p) => !p.isPaid && !p.isWaived))
     } catch (err) {
       showError(err, 'Payment failed')
     } finally {
@@ -354,8 +362,10 @@ const ProcessPayment = () => {
     }
   }
 
-  const canPay = loan && PAYABLE_STATUSES.includes(loan.loanStatusCode)
-  const nextDueEmi = schedule.find((e) => e.status === 'OVERDUE' || e.status === 'PENDING')
+  const canPay     = loan && PAYABLE_STATUSES.includes(loan.loanStatusCode)
+  const nextDueEmi = schedule.find((e) => ['OVERDUE', 'PARTIALLY_PAID', 'PENDING'].includes(e.status))
+  const remainingEmiDue = nextDueEmi ? nextDueEmi.emiAmount - (nextDueEmi.amountPaid || 0) : 0
+  const totalPenalty    = penalties.reduce((sum, p) => sum + (p.penaltyAmount - (p.paidAmount || 0)), 0)
 
   const scheduleColumns = [
     { title: '#', dataIndex: 'emiNumber', key: 'emiNumber', width: 50, align: 'center' },
@@ -541,17 +551,31 @@ const ProcessPayment = () => {
                 description="Only DISBURSED, CURRENT, ACTIVE, OVERDUE and NPA loans can accept payments." />
             ) : (
               <Card title="Process Payment" size="small" style={{ borderRadius: 10 }}>
+                {totalPenalty > 0 && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 12 }}
+                    message={`Outstanding penalties: ${formatCurrency(totalPenalty, 0)}`}
+                    description={`This amount will be deducted first from your payment. Pay at least ${formatCurrency(totalPenalty + remainingEmiDue, 0)} to fully clear EMI #${nextDueEmi?.emiNumber}.`}
+                  />
+                )}
                 <Form form={form} layout="vertical" onFinish={handlePayment} requiredMark="optional">
                   <Row gutter={12}>
                     <Col span={12}>
-                      <Form.Item label="EMI Number" name="emiNumber" rules={[{ required: true }]}
-                        initialValue={nextDueEmi?.emiNumber}>
-                        <InputNumber style={{ width: '100%' }} min={1} placeholder="e.g. 1" />
+                      <Form.Item
+                        label="EMI Number"
+                        name="emiNumber"
+                        rules={[{ required: true }]}
+                        initialValue={nextDueEmi?.emiNumber}
+                        tooltip="Auto-selected — oldest unpaid EMI must be cleared first"
+                      >
+                        <InputNumber style={{ width: '100%' }} disabled />
                       </Form.Item>
                     </Col>
                     <Col span={12}>
                       <Form.Item label="Amount (₹)" name="paymentAmount" rules={[{ required: true }]}
-                        initialValue={nextDueEmi?.emiAmount}>
+                        initialValue={totalPenalty > 0 ? totalPenalty + remainingEmiDue : remainingEmiDue || nextDueEmi?.emiAmount}>
                         <InputNumber style={{ width: '100%' }} min={1} />
                       </Form.Item>
                     </Col>
