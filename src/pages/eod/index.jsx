@@ -1,276 +1,398 @@
-import { useState, useEffect } from 'react'
-import { Row, Col, Card, Button, Timeline, Alert, Tag, Space, Divider, Statistic, Table } from 'antd'
+import { useState, useEffect, useRef } from 'react'
+import {
+  Row, Col, Card, Button, Tag, Space, Divider, Table, Progress, Statistic, Tooltip, Badge
+} from 'antd'
 import {
   PlayCircleOutlined,
   CheckCircleFilled,
   CloseCircleFilled,
   LoadingOutlined,
   ClockCircleOutlined,
+  SafetyOutlined,
   CalculatorOutlined,
-  RiseOutlined,
-  WarningOutlined,
-  DollarOutlined,
+  PercentageOutlined,
+  CreditCardOutlined,
+  AlertOutlined,
+  AuditOutlined,
+  FileProtectOutlined,
+  BarChartOutlined,
+  DatabaseOutlined,
+  CalendarOutlined,
   CheckSquareOutlined,
+  SyncOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import PageHeader from '../../components/PageHeader'
 import { eodApi } from '../../api/eodApi'
-import { showError } from '../../utils/errorHandler'
 
-// EOD steps definition
-const EOD_STEPS = [
-  {
-    key: 'dpd',
-    title: 'Calculate DPD',
-    description: 'Calculate Days Past Due for all active loan EMIs',
-    icon: <CalculatorOutlined />,
-  },
-  {
-    key: 'status',
-    title: 'Update Loan Statuses',
-    description: 'Classify loans as ACTIVE / OVERDUE / NPA based on DPD',
-    icon: <RiseOutlined />,
-  },
-  {
-    key: 'penalty',
-    title: 'Apply Late Penalties',
-    description: 'Apply late payment fees on newly overdue EMIs (DPD = 1)',
-    icon: <DollarOutlined />,
-  },
-  {
-    key: 'complete',
-    title: 'EOD Complete',
-    description: 'All end-of-day tasks finished successfully',
-    icon: <CheckSquareOutlined />,
-  },
-]
-
-// Step status → color / icon
-const stepIcon = (status, icon) => {
-  if (status === 'done')    return <CheckCircleFilled style={{ color: '#52c41a', fontSize: 18 }} />
-  if (status === 'running') return <LoadingOutlined   style={{ color: '#1890ff', fontSize: 18 }} spin />
-  if (status === 'error')   return <CloseCircleFilled style={{ color: '#f5222d', fontSize: 18 }} />
-  return <span style={{ color: '#bbb', fontSize: 18 }}>{icon}</span>
+const PHASE_ICONS = {
+  1:  <SafetyOutlined />,
+  2:  <CalculatorOutlined />,
+  3:  <PercentageOutlined />,
+  4:  <CreditCardOutlined />,
+  5:  <AlertOutlined />,
+  6:  <AuditOutlined />,
+  7:  <FileProtectOutlined />,
+  8:  <BarChartOutlined />,
+  9:  <DatabaseOutlined />,
+  10: <CalendarOutlined />,
+  11: <CheckSquareOutlined />,
 }
 
-const stepColor = (status) => {
-  if (status === 'done')    return 'green'
-  if (status === 'running') return 'blue'
-  if (status === 'error')   return 'red'
-  return 'gray'
+const STATUS_COLOR = {
+  PENDING:   '#d9d9d9',
+  RUNNING:   '#1890ff',
+  COMPLETED: '#52c41a',
+  FAILED:    '#f5222d',
+  SKIPPED:   '#faad14',
+}
+
+const PhaseCard = ({ phase }) => {
+  const isRunning   = phase.status === 'RUNNING'
+  const isCompleted = phase.status === 'COMPLETED'
+  const isFailed    = phase.status === 'FAILED'
+  const isPending   = phase.status === 'PENDING'
+
+  const borderColor = STATUS_COLOR[phase.status] || '#d9d9d9'
+
+  return (
+    <Card
+      size="small"
+      style={{
+        borderRadius: 8,
+        border: `1.5px solid ${borderColor}`,
+        background: isRunning ? '#e6f7ff' : isFailed ? '#fff2f0' : isCompleted ? '#f6ffed' : '#fafafa',
+        transition: 'all 0.3s',
+      }}
+      bodyStyle={{ padding: '10px 12px' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        {/* Phase number + status icon */}
+        <div style={{ minWidth: 32, textAlign: 'center' }}>
+          {isRunning   && <LoadingOutlined spin style={{ color: '#1890ff', fontSize: 18 }} />}
+          {isCompleted && <CheckCircleFilled style={{ color: '#52c41a', fontSize: 18 }} />}
+          {isFailed    && <CloseCircleFilled style={{ color: '#f5222d', fontSize: 18 }} />}
+          {isPending   && <span style={{ color: '#bbb', fontSize: 16 }}>{PHASE_ICONS[phase.phaseNumber]}</span>}
+          <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>P{phase.phaseNumber}</div>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{
+              fontWeight: 600, fontSize: 13,
+              color: isRunning ? '#1890ff' : isFailed ? '#f5222d' : isCompleted ? '#389e0d' : '#888',
+            }}>
+              {phase.phaseName}
+            </span>
+            <Space size={4}>
+              {phase.durationSeconds != null && isCompleted && (
+                <span style={{ fontSize: 11, color: '#aaa' }}>{phase.durationSeconds}s</span>
+              )}
+              {isRunning   && <Tag color="blue"   style={{ margin: 0, fontSize: 11 }}>Running</Tag>}
+              {isCompleted && <Tag color="success" style={{ margin: 0, fontSize: 11 }}>Done</Tag>}
+              {isFailed    && <Tag color="error"   style={{ margin: 0, fontSize: 11 }}>Failed</Tag>}
+              {isPending   && <Tag            style={{ margin: 0, fontSize: 11 }}>Pending</Tag>}
+            </Space>
+          </div>
+
+          <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{phase.description}</div>
+
+          {/* Metrics */}
+          {isCompleted && phase.metrics && Object.keys(phase.metrics).length > 0 && (
+            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {Object.entries(phase.metrics)
+                .filter(([k]) => !['reportDate', 'businessDate', 'cutoffTime', 'dateRolloverStatus',
+                  'archivalStatus', 'rbiReportStatus', 'cibilUploadStatus', 'eodCompletionStatus',
+                  'statusDistribution', 'branchWiseLoans'].includes(k))
+                .slice(0, 5)
+                .map(([key, val]) => (
+                  <Tooltip key={key} title={key.replace(/_/g, ' ')}>
+                    <Tag style={{ margin: 0, fontSize: 11, cursor: 'default' }}>
+                      {formatMetricKey(key)}: <b>{formatMetricVal(val)}</b>
+                    </Tag>
+                  </Tooltip>
+                ))}
+            </div>
+          )}
+
+          {isFailed && phase.error && (
+            <div style={{ fontSize: 11, color: '#f5222d', marginTop: 4 }}>{phase.error}</div>
+          )}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+const formatMetricKey = (key) => {
+  const MAP = {
+    totalLoansProcessed: 'Loans',
+    totalEmisProcessed: 'EMIs',
+    emisMarkedOverdue: 'Overdue',
+    emisAlreadyPaid: 'Paid',
+    loansMarkedActive: 'Active',
+    loansMarkedNpa: 'NPA',
+    penaltiesApplied: 'Penalties',
+    totalDailyInterestAccrued: 'Interest',
+    mandatesPresented: 'NACH',
+    successCount: 'Success',
+    bounceCount: 'Bounced',
+    totalCollected: 'Collected',
+    customersAlerted: 'Alerted',
+    totalOverdueLoans: 'Overdue',
+    loansProvisioned: 'Provisioned',
+    totalProvisionAmount: 'Provision',
+    glEntriesGenerated: 'GL Entries',
+    npaRatioPct: 'NPA%',
+    cibilRecordsQueued: 'CIBIL',
+    reportsGenerated: 'Reports',
+    archivableLoansIdentified: 'Archivable',
+    emisDueTomorrow: 'Due Tomorrow',
+    expectedCollectionAmount: 'Exp. Collection',
+    reconciliationPassed: 'Reconciled',
+    totalLoansVerified: 'Verified',
+    dbStatus: 'DB',
+    alreadyRanToday: 'Ran Today',
+  }
+  return MAP[key] || key
+}
+
+const formatMetricVal = (val) => {
+  if (typeof val === 'boolean') return val ? 'Yes' : 'No'
+  if (typeof val === 'number') {
+    if (val > 1000) return '₹' + Math.round(val).toLocaleString()
+    return val
+  }
+  return String(val)
 }
 
 const EOD = () => {
-  const [running, setRunning]           = useState(false)
-  const [stepStatuses, setStepStatuses] = useState({})
-  const [result, setResult]             = useState(null)
-  const [resultMsg, setResultMsg]       = useState('')
-  const [lastRun, setLastRun]           = useState(null)
-  const [stats, setStats]               = useState(null)
+  const [jobStatus, setJobStatus]       = useState(null)
   const [history, setHistory]           = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [starting, setStarting]         = useState(false)
+  const pollingRef = useRef(null)
 
-  const delay = (ms) => new Promise((res) => setTimeout(res, ms))
+  const isRunning = jobStatus?.status === 'RUNNING'
+  const totalPhases = jobStatus?.phases?.length || 11
+  const completedPhases = jobStatus?.phases?.filter(p => p.status === 'COMPLETED').length || 0
+  const progressPct = isRunning ? Math.round((completedPhases / totalPhases) * 100) : 0
+
+  const startPolling = () => {
+    if (pollingRef.current) return
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await eodApi.getStatus()
+        const status = res.data?.data
+        setJobStatus(status)
+        if (status?.status !== 'RUNNING') {
+          stopPolling()
+          if (status?.status === 'COMPLETED' || status?.status === 'FAILED') {
+            loadHistory()
+          }
+        }
+      } catch { /* silent */ }
+    }, 2000)
+  }
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    loadStatus()
+    loadHistory()
+    return () => stopPolling()
+  }, [])
+
+  const loadStatus = async () => {
+    try {
+      const res = await eodApi.getStatus()
+      const status = res.data?.data
+      setJobStatus(status)
+      if (status?.status === 'RUNNING') startPolling()
+    } catch { /* silent */ }
+  }
 
   const loadHistory = async () => {
     setHistoryLoading(true)
     try {
       const res = await eodApi.getHistory({ page: 0, size: 10 })
-      const records = res.data?.data?.content || []
-      setHistory(records)
-
-      // Populate last run + stats from most recent successful run
-      const lastSuccess = records.find((r) => r.status === 'SUCCESS')
-      if (lastSuccess) {
-        setLastRun(dayjs(lastSuccess.runDate + 'Z'))
-        setStats({
-          totalLoansProcessed:  lastSuccess.totalLoansProcessed,
-          totalEmisProcessed:   lastSuccess.totalEmisProcessed,
-          emisMarkedOverdue:    lastSuccess.emisMarkedOverdue,
-          emisAlreadyPaid:      lastSuccess.emisAlreadyPaid,
-          loansMarkedActive:    lastSuccess.loansMarkedActive,
-          loansMarkedOverdue:   lastSuccess.loansMarkedOverdue,
-          loansMarkedNpa:       lastSuccess.loansMarkedNpa,
-          loansStayedDisbursed: lastSuccess.loansStayedDisbursed,
-          penaltiesApplied:     lastSuccess.penaltiesApplied,
-        })
-      }
+      setHistory(res.data?.data?.content || [])
     } catch { /* silent */ }
     finally { setHistoryLoading(false) }
   }
 
-  useEffect(() => { loadHistory() }, [])
-
   const runEod = async () => {
-    setRunning(true)
-    setResult(null)
-    setResultMsg('')
-    setStepStatuses({})
-    setStats(null)
-
-    // Animate steps while API call runs in background
-    const stepKeys = EOD_STEPS.map((s) => s.key)
-
-    // Mark first step as running immediately
-    setStepStatuses({ [stepKeys[0]]: 'running' })
-
-    // Start the actual API call
-    const apiCall = eodApi.runNow()
-
-    // Simulate step progression with delays (total ~3s animation)
-    for (let i = 0; i < stepKeys.length - 1; i++) {
-      await delay(900)
-      setStepStatuses((prev) => ({
-        ...prev,
-        [stepKeys[i]]: 'done',
-        [stepKeys[i + 1]]: 'running',
-      }))
-    }
-
-    // Wait for actual API to finish
+    setStarting(true)
     try {
-      const res = await apiCall
-      // Backend returns HTTP 200 even on failure — check success flag
-      if (res.data?.success === false) {
-        throw new Error(res.data?.message || 'EOD processing failed')
-      }
-      // Mark last step done
-      await delay(600)
-      setStepStatuses(Object.fromEntries(stepKeys.map((k) => [k, 'done'])))
-      setResult('success')
-      setResultMsg('All EOD tasks completed successfully.')
-      setLastRun(dayjs())
-      setStats(res.data?.data)
-      loadHistory()
+      const res = await eodApi.runNow()
+      if (res.data?.success === false) throw new Error(res.data?.message)
+      // Start polling immediately
+      const initial = res.data?.data
+      setJobStatus(initial)
+      startPolling()
     } catch (err) {
-      // Mark current running step as error
-      setStepStatuses((prev) => {
-        const updated = { ...prev }
-        const runningKey = Object.keys(updated).find((k) => updated[k] === 'running')
-        if (runningKey) updated[runningKey] = 'error'
-        return updated
-      })
-      setResult('error')
-      setResultMsg(err?.message || err?.response?.data?.message || 'EOD processing failed. Check server logs.')
+      // Error handled by interceptor
     } finally {
-      setRunning(false)
+      setStarting(false)
     }
   }
 
-  const timelineItems = EOD_STEPS.map((step) => {
-    const status = stepStatuses[step.key] || 'pending'
-    return {
-      color: stepColor(status),
-      dot: stepIcon(status, step.icon),
-      children: (
-        <div style={{ paddingBottom: 8 }}>
-          <Space>
-            <span style={{
-              fontWeight: 600,
-              color: status === 'done' ? '#52c41a' : status === 'running' ? '#1890ff' : status === 'error' ? '#f5222d' : '#888',
-            }}>
-              {step.title}
-            </span>
-            {status === 'running' && <Tag color="blue">Running...</Tag>}
-            {status === 'done'    && <Tag color="success">Done</Tag>}
-            {status === 'error'   && <Tag color="error">Failed</Tag>}
-          </Space>
-          <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{step.description}</div>
-        </div>
-      ),
-    }
-  })
+  const lastSuccess = history.find(h => h.status === 'SUCCESS')
 
   return (
     <>
       <PageHeader
         title="End of Day Processing"
-        subtitle="Daily batch — DPD calculation, loan status update, penalty application"
+        subtitle="11-phase nightly batch — DPD, interest accrual, NACH, provisioning, regulatory reporting"
         breadcrumbs={[{ label: 'EOD' }]}
       />
 
       <Row gutter={[16, 16]}>
 
-        {/* Left — Run EOD */}
-        <Col xs={24} md={10}>
+        {/* Left — Control Panel */}
+        <Col xs={24} md={8}>
           <Card size="small" style={{ borderRadius: 10 }}>
 
-            {/* Schedule info */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Scheduled Run</div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Scheduled Run</div>
               <Space>
                 <ClockCircleOutlined style={{ color: '#1890ff' }} />
                 <span style={{ fontWeight: 600 }}>Every day at 11:59 PM IST</span>
               </Space>
-              <div style={{ marginTop: 8 }}>
-                <Space>
-                  <span style={{ fontSize: 12, color: '#888' }}>Last manual run:</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>
-                    {lastRun ? lastRun.format('DD MMM YYYY, hh:mm A') : '—'}
+              {lastSuccess && (
+                <div style={{ marginTop: 8, fontSize: 12, color: '#888' }}>
+                  Last success:{' '}
+                  <span style={{ fontWeight: 600, color: '#333' }}>
+                    {dayjs(lastSuccess.runDate + 'Z').format('DD MMM YYYY, hh:mm A')}
                   </span>
-                </Space>
+                  {lastSuccess.durationSeconds && (
+                    <span style={{ color: '#aaa' }}> ({lastSuccess.durationSeconds}s)</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Divider style={{ margin: '10px 0' }} />
+
+            {/* Current job status */}
+            {jobStatus && jobStatus.status !== 'IDLE' && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: '#888' }}>Current Job</span>
+                  <Tag color={
+                    jobStatus.status === 'RUNNING'   ? 'blue'    :
+                    jobStatus.status === 'COMPLETED' ? 'success' : 'error'
+                  }>
+                    {jobStatus.status === 'RUNNING' && <SyncOutlined spin style={{ marginRight: 4 }} />}
+                    {jobStatus.status}
+                  </Tag>
+                </div>
+                {jobStatus.jobId && (
+                  <div style={{ fontSize: 11, color: '#aaa' }}>Job ID: {jobStatus.jobId}</div>
+                )}
+                {isRunning && (
+                  <div style={{ marginTop: 8 }}>
+                    <Progress
+                      percent={progressPct}
+                      size="small"
+                      status="active"
+                      format={() => `${completedPhases}/${totalPhases}`}
+                    />
+                    <div style={{ fontSize: 11, color: '#1890ff', marginTop: 4 }}>
+                      Phase {jobStatus.currentPhaseNumber} of {totalPhases} running...
+                    </div>
+                  </div>
+                )}
+                {jobStatus.status === 'COMPLETED' && (
+                  <div style={{ marginTop: 6 }}>
+                    <Progress percent={100} size="small" />
+                    <div style={{ fontSize: 11, color: '#52c41a', marginTop: 4 }}>
+                      Completed in {jobStatus.durationSeconds}s
+                    </div>
+                  </div>
+                )}
+                {jobStatus.status === 'FAILED' && jobStatus.error && (
+                  <div style={{ fontSize: 11, color: '#f5222d', marginTop: 6 }}>{jobStatus.error}</div>
+                )}
               </div>
-            </div>
-
-            <Divider style={{ margin: '12px 0' }} />
-
-            {/* What EOD does */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>This run will:</div>
-              <Space direction="vertical" size={6}>
-                <Space><CalculatorOutlined style={{ color: '#1890ff' }} /><span style={{ fontSize: 13 }}>Calculate DPD for all active loan EMIs</span></Space>
-                <Space><RiseOutlined     style={{ color: '#722ed1' }} /><span style={{ fontSize: 13 }}>Update loan statuses (ACTIVE / OVERDUE / NPA)</span></Space>
-                <Space><DollarOutlined   style={{ color: '#fa8c16' }} /><span style={{ fontSize: 13 }}>Apply late penalties on newly overdue EMIs</span></Space>
-              </Space>
-            </div>
-
-            <Divider style={{ margin: '12px 0' }} />
+            )}
 
             <Button
               type="primary"
               size="large"
-              icon={<PlayCircleOutlined />}
-              loading={running}
+              icon={isRunning ? <SyncOutlined spin /> : <PlayCircleOutlined />}
+              loading={starting}
+              disabled={isRunning}
               onClick={runEod}
               block
-              style={{ height: 48, fontSize: 15, fontWeight: 600 }}
+              style={{ height: 44, fontWeight: 600 }}
             >
-              {running ? 'Processing EOD...' : 'Run EOD Now'}
+              {isRunning ? 'EOD Running...' : 'Run EOD Now'}
             </Button>
 
-            {result && (
-              <Alert
-                style={{ marginTop: 16, borderRadius: 8 }}
-                type={result === 'success' ? 'success' : 'error'}
-                showIcon
-                message={result === 'success' ? 'EOD Successful' : 'EOD Failed'}
-                description={resultMsg}
-              />
+            {isRunning && (
+              <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: '#888' }}>
+                You can browse other pages — EOD runs in the background
+              </div>
             )}
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            {/* Phase legend */}
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>11 Phases</div>
+            {[
+              { n: '1-2', label: 'Pre-EOD + Loan Processing' },
+              { n: '3',   label: 'Interest Accrual' },
+              { n: '4',   label: 'NACH Processing' },
+              { n: '5',   label: 'Collections & Alerts' },
+              { n: '6',   label: 'Provisioning & GL' },
+              { n: '7-8', label: 'Regulatory + Reports' },
+              { n: '9-10',label: 'Archival + Next Day Prep' },
+              { n: '11',  label: 'Verification & Sign-off' },
+            ].map(item => (
+              <div key={item.n} style={{ fontSize: 11, color: '#666', marginBottom: 3 }}>
+                <Tag style={{ fontSize: 10, margin: '0 6px 0 0' }}>{item.n}</Tag>{item.label}
+              </div>
+            ))}
           </Card>
         </Col>
 
-        {/* Right — Steps tracker */}
-        <Col xs={24} md={14}>
+        {/* Right — Phase Dashboard */}
+        <Col xs={24} md={16}>
           <Card
-            title="EOD Steps"
+            title={
+              <Space>
+                <span>EOD Phase Dashboard</span>
+                {isRunning && <Badge status="processing" text={<span style={{ fontSize: 12, color: '#1890ff' }}>Live</span>} />}
+              </Space>
+            }
             size="small"
             style={{ borderRadius: 10 }}
           >
-            {Object.keys(stepStatuses).length === 0 && !running ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: '#bbb' }}>
-                <PlayCircleOutlined style={{ fontSize: 40, marginBottom: 12 }} />
-                <div style={{ fontSize: 14 }}>Click "Run EOD Now" to start processing</div>
+            {!jobStatus || jobStatus.status === 'IDLE' ? (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: '#bbb' }}>
+                <PlayCircleOutlined style={{ fontSize: 48, marginBottom: 12 }} />
+                <div>Click "Run EOD Now" to start processing</div>
               </div>
             ) : (
-              <Timeline style={{ marginTop: 16 }} items={timelineItems} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(jobStatus.phases || []).map(phase => (
+                  <PhaseCard key={phase.phaseNumber} phase={phase} />
+                ))}
+              </div>
             )}
           </Card>
         </Col>
 
       </Row>
 
-      {/* History table */}
+      {/* History Table */}
       <Card title="EOD Run History" size="small" style={{ borderRadius: 10, marginTop: 16 }}>
         <Table
           dataSource={history}
@@ -278,115 +400,52 @@ const EOD = () => {
           size="small"
           loading={historyLoading}
           pagination={{ pageSize: 10, size: 'small' }}
+          scroll={{ x: 900 }}
           locale={{ emptyText: 'No EOD runs recorded yet' }}
           columns={[
             {
-              title: 'Run Date',
-              dataIndex: 'runDate',
-              key: 'runDate',
-              render: (v) => v ? dayjs(v + 'Z').format('DD MMM YYYY, hh:mm A') : '—',
+              title: 'Job ID', dataIndex: 'jobId', key: 'jobId', width: 90,
+              render: v => v ? <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{v}</span> : '—',
             },
             {
-              title: 'Triggered By',
-              dataIndex: 'triggeredBy',
-              key: 'triggeredBy',
-              render: (v) => <Tag color={v === 'SCHEDULER' ? 'blue' : 'purple'}>{v}</Tag>,
+              title: 'Run Date', dataIndex: 'runDate', key: 'runDate', width: 160,
+              render: v => v ? dayjs(v + 'Z').format('DD MMM YYYY, hh:mm A') : '—',
             },
             {
-              title: 'Status',
-              dataIndex: 'status',
-              key: 'status',
-              render: (v) => <Tag color={v === 'SUCCESS' ? 'success' : 'error'}>{v}</Tag>,
+              title: 'Trigger', dataIndex: 'triggeredBy', key: 'triggeredBy', width: 100,
+              render: v => <Tag color={v === 'SCHEDULER' ? 'blue' : 'purple'}>{v}</Tag>,
             },
-            { title: 'Loans',       dataIndex: 'totalLoansProcessed', key: 'loans',    align: 'center' },
-            { title: 'EMIs',        dataIndex: 'totalEmisProcessed',  key: 'emis',     align: 'center' },
-            { title: 'Overdue EMIs', dataIndex: 'emisMarkedOverdue',  key: 'overdue',  align: 'center', render: (v) => v > 0 ? <span style={{ color: '#fa8c16', fontWeight: 600 }}>{v}</span> : v },
-            { title: 'NPA',         dataIndex: 'loansMarkedNpa',      key: 'npa',      align: 'center', render: (v) => v > 0 ? <span style={{ color: '#f5222d', fontWeight: 600 }}>{v}</span> : v },
-            { title: 'Penalties',   dataIndex: 'penaltiesApplied',    key: 'penalties', align: 'center' },
             {
-              title: 'Error',
-              dataIndex: 'errorMessage',
-              key: 'error',
-              render: (v) => v ? <span style={{ color: '#f5222d', fontSize: 11 }}>{v}</span> : <span style={{ color: '#bbb' }}>—</span>,
+              title: 'Status', dataIndex: 'status', key: 'status', width: 90,
+              render: v => <Tag color={v === 'SUCCESS' ? 'success' : v === 'RUNNING' ? 'blue' : 'error'}>{v}</Tag>,
+            },
+            { title: 'Duration', dataIndex: 'durationSeconds', key: 'dur', width: 80, align: 'center', render: v => v ? `${v}s` : '—' },
+            { title: 'Loans', dataIndex: 'totalLoansProcessed', key: 'loans', align: 'center', width: 70 },
+            { title: 'EMIs', dataIndex: 'totalEmisProcessed', key: 'emis', align: 'center', width: 70 },
+            {
+              title: 'Overdue', dataIndex: 'emisMarkedOverdue', key: 'overdue', align: 'center', width: 80,
+              render: v => v > 0 ? <span style={{ color: '#fa8c16', fontWeight: 600 }}>{v}</span> : v,
+            },
+            {
+              title: 'NPA', dataIndex: 'loansMarkedNpa', key: 'npa', align: 'center', width: 60,
+              render: v => v > 0 ? <span style={{ color: '#f5222d', fontWeight: 600 }}>{v}</span> : v,
+            },
+            { title: 'NACH', dataIndex: 'nachProcessed', key: 'nach', align: 'center', width: 70 },
+            {
+              title: 'Provision', dataIndex: 'totalProvisionAmount', key: 'prov', align: 'center', width: 100,
+              render: v => v ? `₹${Math.round(v).toLocaleString()}` : '—',
+            },
+            {
+              title: 'Reconciled', dataIndex: 'reconciliationPassed', key: 'recon', align: 'center', width: 90,
+              render: v => v === true ? <Tag color="success">Pass</Tag> : v === false ? <Tag color="error">Fail</Tag> : '—',
+            },
+            {
+              title: 'Error', dataIndex: 'errorMessage', key: 'error',
+              render: v => v ? <span style={{ color: '#f5222d', fontSize: 11 }}>{v}</span> : <span style={{ color: '#bbb' }}>—</span>,
             },
           ]}
         />
       </Card>
-
-      {/* Stats — shown after successful EOD */}
-      {stats && (
-        <Card title="EOD Results" size="small" style={{ borderRadius: 10, marginTop: 16 }}>
-          <Row gutter={[0, 24]}>
-
-            {/* Step 1 stats */}
-            <Col span={24}>
-              <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Step 1 — DPD Calculation
-              </div>
-              <Row gutter={[16, 16]}>
-                {[
-                  { label: 'Loans Processed',  value: stats.totalLoansProcessed, color: '#1890ff' },
-                  { label: 'EMIs Scanned',      value: stats.totalEmisProcessed,  color: '#722ed1' },
-                  { label: 'EMIs Marked Overdue', value: stats.emisMarkedOverdue, color: '#fa8c16' },
-                  { label: 'EMIs Already Paid', value: stats.emisAlreadyPaid,     color: '#52c41a' },
-                ].map((s) => (
-                  <Col key={s.label} xs={12} sm={6}>
-                    <Card size="small" style={{ borderRadius: 8, textAlign: 'center', border: '1px solid #f0f0f0' }}
-                      bodyStyle={{ padding: '12px 8px' }}>
-                      <Statistic value={s.value} valueStyle={{ color: s.color, fontSize: 24, fontWeight: 700 }} />
-                      <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{s.label}</div>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            </Col>
-
-            {/* Step 2 stats */}
-            <Col span={24}>
-              <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Step 2 — Loan Status Updates
-              </div>
-              <Row gutter={[16, 16]}>
-                {[
-                  { label: 'Marked ACTIVE',    value: stats.loansMarkedActive,    color: '#52c41a' },
-                  { label: 'Marked OVERDUE',   value: stats.loansMarkedOverdue,   color: '#fa8c16' },
-                  { label: 'Marked NPA',        value: stats.loansMarkedNpa,       color: '#f5222d' },
-                  { label: 'Stayed DISBURSED',  value: stats.loansStayedDisbursed, color: '#1890ff' },
-                ].map((s) => (
-                  <Col key={s.label} xs={12} sm={6}>
-                    <Card size="small" style={{ borderRadius: 8, textAlign: 'center', border: '1px solid #f0f0f0' }}
-                      bodyStyle={{ padding: '12px 8px' }}>
-                      <Statistic value={s.value} valueStyle={{ color: s.color, fontSize: 24, fontWeight: 700 }} />
-                      <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{s.label}</div>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            </Col>
-
-            {/* Step 3 stats */}
-            <Col span={24}>
-              <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                Step 3 — Penalty Application
-              </div>
-              <Row gutter={[16, 16]}>
-                {[
-                  { label: 'Penalties Applied', value: stats.penaltiesApplied,   color: '#cf1322' },
-                ].map((s) => (
-                  <Col key={s.label} xs={12} sm={6}>
-                    <Card size="small" style={{ borderRadius: 8, textAlign: 'center', border: '1px solid #f0f0f0' }}
-                      bodyStyle={{ padding: '12px 8px' }}>
-                      <Statistic value={s.value} valueStyle={{ color: s.color, fontSize: 24, fontWeight: 700 }} />
-                      <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{s.label}</div>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            </Col>
-
-          </Row>
-        </Card>
-      )}
     </>
   )
 }
