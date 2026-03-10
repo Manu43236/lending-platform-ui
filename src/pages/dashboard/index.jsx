@@ -392,6 +392,7 @@ const Dashboard = () => {
               pagination={false}
               size="small"
               loading={loading}
+              scroll={{ x: 600 }}
               locale={{ emptyText: 'No loans found' }}
             />
           </Card>

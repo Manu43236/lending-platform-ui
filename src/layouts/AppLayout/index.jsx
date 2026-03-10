@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Layout, Menu, Avatar, Dropdown, Typography, Space, Tag } from 'antd'
+import { Layout, Menu, Avatar, Dropdown, Typography, Space, Tag, Drawer, Grid } from 'antd'
 import {
   DashboardOutlined,
   UserOutlined,
@@ -23,20 +23,27 @@ import finpulseLogo from '../../assets/finpuls-logo.png'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
+const { useBreakpoint } = Grid
+
+const SIDER_WIDTH = 240
+const SIDER_COLLAPSED_WIDTH = 80
 
 const AppLayout = () => {
   const [collapsed, setCollapsed] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuthStore()
+  const screens = useBreakpoint()
+
+  // md = 768px — below that we switch to Drawer mode
+  const isMobile = !screens.md
 
   const userRoles = user?.roles?.map((r) => r.roleCode) || []
 
-  // Returns true if user has at least one of the required roles (null = open to all)
   const canAccess = (allowedRoles) =>
     !allowedRoles || allowedRoles.some((r) => userRoles.includes(r))
 
-  // Filter child items, then hide parent if no children remain
   const filterChildren = (children) =>
     children.filter((c) => canAccess(c.roles))
 
@@ -140,7 +147,6 @@ const AppLayout = () => {
     },
   ]
 
-  // Build filtered menu — hide items user can't access, hide parent if all children hidden
   const menuItems = allMenuItems
     .filter((item) => canAccess(item.roles))
     .map((item) => {
@@ -152,22 +158,14 @@ const AppLayout = () => {
     .filter(Boolean)
 
   const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
-    },
+    { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
     { type: 'divider' },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      danger: true,
-    },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
   ]
 
   const handleMenuClick = ({ key }) => {
     navigate(key)
+    if (isMobile) setDrawerOpen(false)
   }
 
   const handleUserMenu = ({ key }) => {
@@ -181,58 +179,114 @@ const AppLayout = () => {
 
   const selectedKey = location.pathname
 
+  // Shared menu content used in both Sider and Drawer
+  const menuContent = (
+    <>
+      <div style={{
+        height: 64,
+        background: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 16px',
+        borderBottom: '1px solid #e8e8e8',
+        flexShrink: 0,
+      }}>
+        <img
+          src={finpulseLogo}
+          alt="FinPulse"
+          style={{ height: 36, objectFit: 'contain', display: 'block' }}
+        />
+      </div>
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        defaultOpenKeys={['los', 'lms', 'collections', 'reports', 'admin', 'advices']}
+        items={menuItems}
+        onClick={handleMenuClick}
+        style={{ background: '#1B3A6B', borderRight: 0, marginTop: 8 }}
+      />
+    </>
+  )
+
+  const contentMargin = isMobile ? '12px 8px' : '24px'
+  const siderMarginLeft = isMobile ? 0 : (collapsed ? SIDER_COLLAPSED_WIDTH : SIDER_WIDTH)
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        trigger={null}
-        width={240}
-        style={{
-          background: '#1B3A6B',
-          overflow: 'auto',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
-        }}
-      >
-        {/* Logo */}
-        <div style={{
-          height: 64,
-          background: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '0 16px',
-          borderBottom: '1px solid #e8e8e8',
-        }}>
-          <img
-            src={finpulseLogo}
-            alt="FinPulse"
-            style={{ height: collapsed ? 30 : 36, objectFit: 'contain', display: 'block' }}
+
+      {/* ── Desktop Sider ── */}
+      {!isMobile && (
+        <Sider
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          trigger={null}
+          width={SIDER_WIDTH}
+          collapsedWidth={SIDER_COLLAPSED_WIDTH}
+          style={{
+            background: '#1B3A6B',
+            overflow: 'auto',
+            height: '100vh',
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            zIndex: 100,
+          }}
+        >
+          <div style={{
+            height: 64,
+            background: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 16px',
+            borderBottom: '1px solid #e8e8e8',
+          }}>
+            <img
+              src={finpulseLogo}
+              alt="FinPulse"
+              style={{ height: collapsed ? 30 : 36, objectFit: 'contain', display: 'block' }}
+            />
+          </div>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            defaultOpenKeys={['los', 'lms', 'collections', 'reports', 'admin', 'advices']}
+            items={menuItems}
+            onClick={handleMenuClick}
+            style={{ background: '#1B3A6B', borderRight: 0, marginTop: 8 }}
           />
-        </div>
+        </Sider>
+      )}
 
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          defaultOpenKeys={['los', 'lms', 'collections', 'reports', 'admin', 'advices']}
-          items={menuItems}
-          onClick={handleMenuClick}
-          style={{ background: '#1B3A6B', borderRight: 0, marginTop: 8 }}
-        />
-      </Sider>
+      {/* ── Mobile Drawer ── */}
+      {isMobile && (
+        <Drawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          placement="left"
+          width={SIDER_WIDTH}
+          styles={{
+            body: { padding: 0, background: '#1B3A6B', display: 'flex', flexDirection: 'column' },
+            header: { display: 'none' },
+          }}
+          closable={false}
+        >
+          {menuContent}
+        </Drawer>
+      )}
 
-      <Layout style={{ marginLeft: collapsed ? 80 : 240, transition: 'all 0.2s' }}>
+      {/* ── Main layout ── */}
+      <Layout style={{ marginLeft: siderMarginLeft, transition: 'margin-left 0.2s' }}>
+
         {/* Header */}
         <Header style={{
           background: '#fff',
-          padding: '0 24px',
+          padding: '0 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -243,17 +297,23 @@ const AppLayout = () => {
           boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
         }}>
           <Space>
-            {collapsed
-              ? <MenuUnfoldOutlined onClick={() => setCollapsed(false)} style={{ fontSize: 18, cursor: 'pointer' }} />
-              : <MenuFoldOutlined onClick={() => setCollapsed(true)} style={{ fontSize: 18, cursor: 'pointer' }} />
-            }
+            {isMobile ? (
+              <MenuUnfoldOutlined
+                onClick={() => setDrawerOpen(true)}
+                style={{ fontSize: 20, cursor: 'pointer' }}
+              />
+            ) : (
+              collapsed
+                ? <MenuUnfoldOutlined onClick={() => setCollapsed(false)} style={{ fontSize: 18, cursor: 'pointer' }} />
+                : <MenuFoldOutlined onClick={() => setCollapsed(true)} style={{ fontSize: 18, cursor: 'pointer' }} />
+            )}
           </Space>
 
-          <Space size={16}>
-            {user?.branchCode && (
+          <Space size={12}>
+            {!isMobile && user?.branchCode && (
               <Tag color="blue">{user.branchCode}</Tag>
             )}
-            {userRoles[0] && (
+            {!isMobile && userRoles[0] && (
               <Tag color="geekblue">{userRoles[0]}</Tag>
             )}
             <Dropdown
@@ -263,7 +323,7 @@ const AppLayout = () => {
             >
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar style={{ backgroundColor: '#1B3A6B' }} icon={<UserOutlined />} />
-                {!collapsed && (
+                {!isMobile && (
                   <Text strong style={{ fontSize: 13 }}>{user?.fullName || user?.username}</Text>
                 )}
               </Space>
@@ -273,7 +333,7 @@ const AppLayout = () => {
 
         {/* Page Content */}
         <Content style={{
-          margin: '24px',
+          margin: contentMargin,
           minHeight: 'calc(100vh - 112px)',
           minWidth: 0,
         }}>

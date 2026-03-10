@@ -1,0 +1,36 @@
+/* ── Global resets ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Make all Ant Design tables scroll horizontally on small screens ── */
+.ant-table-wrapper {
+  overflow-x: auto;
+}
+
+/* ── Prevent any fixed-width content from breaking mobile layout ── */
+.ant-card {
+  min-width: 0;
+}
+
+/* ── Form labels wrap on mobile instead of overflowing ── */
+@media (max-width: 575px) {
+  .ant-form-item-label > label {
+    white-space: normal;
+  }
+
+  /* Tighten card padding on mobile */
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  /* Stat numbers on dashboard collection strip */
+  .ant-statistic-content-value {
+    font-size: 18px !important;
+  }
+}
