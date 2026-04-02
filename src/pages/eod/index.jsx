@@ -47,6 +47,9 @@ const STATUS_COLOR = {
   SKIPPED:   '#faad14',
 }
 
+const fmtTime = (dt) => dt ? dayjs(dt.includes('Z') ? dt : dt + 'Z').format('HH:mm:ss') : null
+const fmtDuration = (s) => s == null ? null : s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+
 const PhaseCard = ({ phase }) => {
   const isRunning   = phase.status === 'RUNNING'
   const isCompleted = phase.status === 'COMPLETED'
@@ -54,6 +57,8 @@ const PhaseCard = ({ phase }) => {
   const isPending   = phase.status === 'PENDING'
 
   const borderColor = STATUS_COLOR[phase.status] || '#d9d9d9'
+  const startStr    = fmtTime(phase.startTime)
+  const endStr      = fmtTime(phase.endTime)
 
   return (
     <Card
@@ -78,6 +83,7 @@ const PhaseCard = ({ phase }) => {
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Name + status + duration */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{
               fontWeight: 600, fontSize: 13,
@@ -86,8 +92,10 @@ const PhaseCard = ({ phase }) => {
               {phase.phaseName}
             </span>
             <Space size={4}>
-              {phase.durationSeconds != null && isCompleted && (
-                <span style={{ fontSize: 11, color: '#aaa' }}>{phase.durationSeconds}s</span>
+              {isCompleted && phase.durationSeconds != null && (
+                <Tag color="default" style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>
+                  {fmtDuration(phase.durationSeconds)}
+                </Tag>
               )}
               {isRunning   && <Tag color="blue"   style={{ margin: 0, fontSize: 11 }}>Running</Tag>}
               {isCompleted && <Tag color="success" style={{ margin: 0, fontSize: 11 }}>Done</Tag>}
@@ -96,23 +104,34 @@ const PhaseCard = ({ phase }) => {
             </Space>
           </div>
 
+          {/* Description */}
           <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{phase.description}</div>
 
-          {/* Metrics */}
+          {/* Timing row */}
+          {(isRunning || isCompleted || isFailed) && startStr && (
+            <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+              {isRunning && (
+                <span><ClockCircleOutlined style={{ marginRight: 4, color: '#1890ff' }} />Started at {startStr}</span>
+              )}
+              {(isCompleted || isFailed) && (
+                <span style={{ fontFamily: 'monospace' }}>
+                  {startStr}
+                  {endStr && <> → {endStr}</>}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* All metrics */}
           {isCompleted && phase.metrics && Object.keys(phase.metrics).length > 0 && (
-            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {Object.entries(phase.metrics)
-                .filter(([k]) => !['reportDate', 'businessDate', 'cutoffTime', 'dateRolloverStatus',
-                  'archivalStatus', 'rbiReportStatus', 'cibilUploadStatus', 'eodCompletionStatus',
-                  'statusDistribution', 'branchWiseLoans'].includes(k))
-                .slice(0, 5)
-                .map(([key, val]) => (
-                  <Tooltip key={key} title={key.replace(/_/g, ' ')}>
-                    <Tag style={{ margin: 0, fontSize: 11, cursor: 'default' }}>
-                      {formatMetricKey(key)}: <b>{formatMetricVal(val)}</b>
-                    </Tag>
-                  </Tooltip>
-                ))}
+            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {Object.entries(phase.metrics).map(([key, val]) => (
+                <Tooltip key={key} title={key}>
+                  <Tag style={{ margin: 0, fontSize: 11, cursor: 'default' }}>
+                    {formatMetricKey(key)}: <b>{formatMetricVal(val)}</b>
+                  </Tag>
+                </Tooltip>
+              ))}
             </div>
           )}
 
@@ -294,7 +313,19 @@ const EOD = () => {
                   </Tag>
                 </div>
                 {jobStatus.jobId && (
-                  <div style={{ fontSize: 11, color: '#aaa' }}>Job ID: {jobStatus.jobId}</div>
+                  <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>
+                    Job: <span style={{ fontFamily: 'monospace' }}>{jobStatus.jobId}</span>
+                  </div>
+                )}
+                {jobStatus.startTime && (
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>
+                    Started: <b>{dayjs(jobStatus.startTime.includes('Z') ? jobStatus.startTime : jobStatus.startTime + 'Z').format('hh:mm:ss A')}</b>
+                  </div>
+                )}
+                {jobStatus.endTime && (
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>
+                    Ended: <b>{dayjs(jobStatus.endTime.includes('Z') ? jobStatus.endTime : jobStatus.endTime + 'Z').format('hh:mm:ss A')}</b>
+                  </div>
                 )}
                 {isRunning && (
                   <div style={{ marginTop: 8 }}>
@@ -408,8 +439,18 @@ const EOD = () => {
               render: v => v ? <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{v}</span> : '—',
             },
             {
-              title: 'Run Date', dataIndex: 'runDate', key: 'runDate', width: 160,
-              render: v => v ? dayjs(v + 'Z').format('DD MMM YYYY, hh:mm A') : '—',
+              title: 'Started',
+              key: 'runDate',
+              width: 180,
+              render: (_, row) => (
+                <Space direction="vertical" size={0}>
+                  <span>{row.runDate ? dayjs(row.runDate + 'Z').format('DD MMM YYYY') : '—'}</span>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#666' }}>
+                    {row.runDate ? dayjs(row.runDate + 'Z').format('hh:mm:ss A') : ''}
+                    {row.completedAt ? <> → {dayjs(row.completedAt + 'Z').format('hh:mm:ss A')}</> : ''}
+                  </span>
+                </Space>
+              ),
             },
             {
               title: 'Trigger', dataIndex: 'triggeredBy', key: 'triggeredBy', width: 100,
