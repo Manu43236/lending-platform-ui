@@ -61,6 +61,7 @@ import MISReport from './pages/reports/MIS'
 import AdminUsers from './pages/admin/Users'
 import AdminRoles from './pages/admin/Roles'
 import AdminMasters from './pages/admin/Masters'
+import LoginHistory from './pages/admin/LoginHistory'
 
 // Profile
 import Profile from './pages/profile'
@@ -134,6 +135,7 @@ const App = () => {
         <Route path="/admin/users" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminUsers /></RoleGuard>} />
         <Route path="/admin/roles" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminRoles /></RoleGuard>} />
         <Route path="/admin/masters" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><AdminMasters /></RoleGuard>} />
+        <Route path="/admin/login-history" element={<RoleGuard allowedRoles={[ROLES.ADMIN]}><LoginHistory /></RoleGuard>} />
 
         {/* Profile */}
         <Route path="/profile" element={<Profile />} />

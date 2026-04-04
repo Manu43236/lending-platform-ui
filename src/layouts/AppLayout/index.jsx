@@ -18,6 +18,7 @@ import {
   CreditCardOutlined,
 } from '@ant-design/icons'
 import useAuthStore from '../../store/authStore'
+import { authApi } from '../../api/authApi'
 import { ROLES, APPROVER_ROLES, MANAGEMENT_ROLES } from '../../utils/constants'
 import finpulseLogo from '../../assets/finpuls-logo.png'
 
@@ -140,9 +141,10 @@ const AppLayout = () => {
       label: 'Admin',
       roles: [ROLES.ADMIN],
       children: [
-        { key: '/admin/users',    label: 'Users',    roles: null },
-        { key: '/admin/roles',    label: 'Roles',    roles: null },
-        { key: '/admin/masters',  label: 'Masters',  roles: null },
+        { key: '/admin/users',          label: 'Users',          roles: null },
+        { key: '/admin/roles',          label: 'Roles',          roles: null },
+        { key: '/admin/masters',        label: 'Masters',        roles: null },
+        { key: '/admin/login-history',  label: 'Login History',  roles: null },
       ],
     },
   ]
@@ -170,8 +172,10 @@ const AppLayout = () => {
 
   const handleUserMenu = ({ key }) => {
     if (key === 'logout') {
-      logout()
-      navigate('/login')
+      authApi.logout().finally(() => {
+        logout()
+        navigate('/login')
+      })
     } else if (key === 'profile') {
       navigate('/profile')
     }

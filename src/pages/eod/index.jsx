@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Row, Col, Card, Button, Tag, Space, Divider, Table, Progress, Statistic, Tooltip, Badge
+  Row, Col, Card, Button, Tag, Space, Divider, Table, Progress, Statistic, Tooltip, Badge,
+  Drawer, Timeline, Alert, Spin
 } from 'antd'
 import {
   PlayCircleOutlined,
@@ -20,6 +21,8 @@ import {
   CalendarOutlined,
   CheckSquareOutlined,
   SyncOutlined,
+  EyeOutlined,
+  ExclamationCircleFilled,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import PageHeader from '../../components/PageHeader'
@@ -186,11 +189,177 @@ const formatMetricVal = (val) => {
   return String(val)
 }
 
+const PHASE_STATUS_COLOR = {
+  COMPLETED: 'green',
+  FAILED: 'red',
+  RUNNING: 'blue',
+  PENDING: 'gray',
+  SKIPPED: 'orange',
+}
+
+const JobDetailDrawer = ({ jobId, open, onClose }) => {
+  const [detail, setDetail] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || !jobId) return
+    setDetail(null)
+    setLoading(true)
+    eodApi.getJobDetail(jobId)
+      .then(res => setDetail(res.data?.data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [open, jobId])
+
+  const failedPhase = detail?.phases?.find(p => p.status === 'FAILED')
+
+  const timelineItems = (detail?.phases || []).map(p => {
+    const isFailed = p.status === 'FAILED'
+    const isCompleted = p.status === 'COMPLETED'
+    const isPending = p.status === 'PENDING'
+
+    return {
+      color: PHASE_STATUS_COLOR[p.status] || 'gray',
+      dot: isFailed
+        ? <ExclamationCircleFilled style={{ fontSize: 16, color: '#f5222d' }} />
+        : isCompleted
+          ? <CheckCircleFilled style={{ fontSize: 14, color: '#52c41a' }} />
+          : isPending
+            ? <span style={{ width: 10, height: 10, display: 'inline-block', borderRadius: '50%', background: '#d9d9d9' }} />
+            : undefined,
+      children: (
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{
+              fontWeight: 600,
+              fontSize: 13,
+              color: isFailed ? '#f5222d' : isCompleted ? '#389e0d' : '#888',
+            }}>
+              P{p.phaseNumber} — {p.phaseName}
+            </span>
+            <Space size={4}>
+              {p.durationSeconds != null && isCompleted && (
+                <Tag style={{ fontSize: 11, margin: 0 }}>{fmtDuration(p.durationSeconds)}</Tag>
+              )}
+              <Tag
+                color={isFailed ? 'error' : isCompleted ? 'success' : isPending ? 'default' : 'processing'}
+                style={{ fontSize: 11, margin: 0 }}
+              >
+                {p.status}
+              </Tag>
+            </Space>
+          </div>
+
+          <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{p.description}</div>
+
+          {(p.startTime || p.endTime) && (
+            <div style={{ fontSize: 11, color: '#888', fontFamily: 'monospace', marginTop: 3 }}>
+              {p.startTime && fmtTime(p.startTime)}
+              {p.endTime && <> → {fmtTime(p.endTime)}</>}
+            </div>
+          )}
+
+          {/* Metrics */}
+          {isCompleted && p.metrics && Object.keys(p.metrics).length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+              {Object.entries(p.metrics).map(([key, val]) => (
+                <Tooltip key={key} title={key}>
+                  <Tag style={{ fontSize: 11, margin: 0 }}>
+                    {formatMetricKey(key)}: <b>{formatMetricVal(val)}</b>
+                  </Tag>
+                </Tooltip>
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {isFailed && p.error && (
+            <Alert
+              type="error"
+              showIcon
+              message="Phase Failed"
+              description={<span style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.error}</span>}
+              style={{ marginTop: 8 }}
+            />
+          )}
+        </div>
+      ),
+    }
+  })
+
+  return (
+    <Drawer
+      title={
+        <Space>
+          <span>EOD Job Detail</span>
+          {jobId && <Tag style={{ fontFamily: 'monospace' }}>{jobId}</Tag>}
+          {detail?.summary?.status && (
+            <Tag color={
+              detail.summary.status === 'SUCCESS' ? 'success' :
+              detail.summary.status === 'FAILED' ? 'error' : 'processing'
+            }>
+              {detail.summary.status}
+            </Tag>
+          )}
+        </Space>
+      }
+      open={open}
+      onClose={onClose}
+      width={600}
+      destroyOnClose
+    >
+      {loading && <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>}
+
+      {!loading && detail && (
+        <>
+          {/* Summary strip */}
+          <div style={{ display: 'flex', gap: 24, marginBottom: 16, flexWrap: 'wrap' }}>
+            <Statistic title="Triggered By" value={detail.summary?.triggeredBy || '—'} valueStyle={{ fontSize: 14 }} />
+            <Statistic
+              title="Run Date"
+              value={detail.summary?.runDate ? dayjs(detail.summary.runDate + 'Z').format('DD MMM YYYY, hh:mm A') : '—'}
+              valueStyle={{ fontSize: 14 }}
+            />
+            <Statistic
+              title="Duration"
+              value={detail.summary?.durationSeconds != null ? fmtDuration(detail.summary.durationSeconds) : '—'}
+              valueStyle={{ fontSize: 14 }}
+            />
+          </div>
+
+          {/* Top-level error on failed jobs */}
+          {detail.summary?.errorMessage && (
+            <Alert
+              type="error"
+              showIcon
+              message={`Job failed at Phase ${failedPhase ? failedPhase.phaseNumber + ' — ' + failedPhase.phaseName : ''}`}
+              description={<span style={{ fontFamily: 'monospace', fontSize: 12 }}>{detail.summary.errorMessage}</span>}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
+          <Divider style={{ margin: '0 0 16px' }}>Phase Log</Divider>
+
+          {detail.phases?.length > 0
+            ? <Timeline items={timelineItems} />
+            : <div style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No phase logs recorded for this job</div>
+          }
+        </>
+      )}
+
+      {!loading && !detail && (
+        <div style={{ color: '#aaa', textAlign: 'center', padding: 48 }}>Failed to load job details</div>
+      )}
+    </Drawer>
+  )
+}
+
 const EOD = () => {
   const [jobStatus, setJobStatus]       = useState(null)
   const [history, setHistory]           = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [starting, setStarting]         = useState(false)
+  const [drawerJobId, setDrawerJobId]   = useState(null)
   const pollingRef = useRef(null)
 
   const isRunning = jobStatus?.status === 'RUNNING'
@@ -484,9 +653,25 @@ const EOD = () => {
               title: 'Error', dataIndex: 'errorMessage', key: 'error',
               render: v => v ? <span style={{ color: '#f5222d', fontSize: 11 }}>{v}</span> : <span style={{ color: '#bbb' }}>—</span>,
             },
+            {
+              title: '', key: 'action', width: 60, fixed: 'right',
+              render: (_, row) => (
+                <Button
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => setDrawerJobId(row.jobId)}
+                />
+              ),
+            },
           ]}
         />
       </Card>
+
+      <JobDetailDrawer
+        jobId={drawerJobId}
+        open={!!drawerJobId}
+        onClose={() => setDrawerJobId(null)}
+      />
     </>
   )
 }
