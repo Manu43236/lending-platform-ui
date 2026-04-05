@@ -3,6 +3,7 @@ name: Deploy Frontend to EC2
 on:
   push:
     branches: [main]
+  workflow_dispatch:  # allows manual trigger from GitHub Actions tab
 
 jobs:
   deploy:
@@ -15,8 +16,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -29,14 +30,29 @@ jobs:
       - name: Deploy to EC2
         env:
           SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: 13.206.81.60
+          EC2_USER: ubuntu
         run: |
           printf '%s' "$SSH_KEY" > /tmp/ec2_key.pem
           chmod 400 /tmp/ec2_key.pem
-          ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem \
-            ubuntu@13.206.81.60 "mkdir -p /tmp/finpulse-deploy"
-          scp -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem -r dist/* \
-            ubuntu@13.206.81.60:/tmp/finpulse-deploy/
-          ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem \
-            ubuntu@13.206.81.60 \
-            "sudo cp -r /tmp/finpulse-deploy/* /var/www/finpulse/ && sudo chown -R www-data:www-data /var/www/finpulse && echo 'Frontend deployed'"
+          SSH="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/ec2_key.pem $EC2_USER@$EC2_HOST"
+          SCP="scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/ec2_key.pem"
+
+          echo ">>> Backing up old frontend..."
+          $SSH "sudo cp -r /var/www/finpulse /var/www/finpulse.bak 2>/dev/null || true"
+
+          echo ">>> Uploading build files..."
+          $SSH "mkdir -p /tmp/finpulse-deploy && rm -rf /tmp/finpulse-deploy/*"
+          $SCP -r dist/* $EC2_USER@$EC2_HOST:/tmp/finpulse-deploy/
+
+          echo ">>> Swapping files..."
+          $SSH "sudo rm -rf /var/www/finpulse/* && sudo cp -r /tmp/finpulse-deploy/* /var/www/finpulse/ && sudo chown -R www-data:www-data /var/www/finpulse"
+
+          echo ">>> Reloading nginx..."
+          $SSH "sudo nginx -t && sudo systemctl reload nginx"
+
+          echo ">>> Cleaning up temp files..."
+          $SSH "rm -rf /tmp/finpulse-deploy"
+
+          echo ">>> Frontend deployed successfully!"
           rm -f /tmp/ec2_key.pem
