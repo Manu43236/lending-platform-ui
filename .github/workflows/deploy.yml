@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_BASE_URL: http://13.234.38.91
+          VITE_API_BASE_URL: http://13.206.81.60
 
       - name: Deploy to EC2
         env:
@@ -33,10 +33,10 @@ jobs:
           printf '%s' "$SSH_KEY" > /tmp/ec2_key.pem
           chmod 400 /tmp/ec2_key.pem
           ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem \
-            ubuntu@13.234.38.91 "mkdir -p /tmp/finpulse-deploy"
+            ubuntu@13.206.81.60 "mkdir -p /tmp/finpulse-deploy"
           scp -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem -r dist/* \
-            ubuntu@13.234.38.91:/tmp/finpulse-deploy/
+            ubuntu@13.206.81.60:/tmp/finpulse-deploy/
           ssh -o StrictHostKeyChecking=no -i /tmp/ec2_key.pem \
-            ubuntu@13.234.38.91 \
+            ubuntu@13.206.81.60 \
             "sudo cp -r /tmp/finpulse-deploy/* /var/www/finpulse/ && sudo chown -R www-data:www-data /var/www/finpulse && echo 'Frontend deployed'"
           rm -f /tmp/ec2_key.pem
