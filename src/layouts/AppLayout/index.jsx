@@ -21,6 +21,7 @@ import useAuthStore from '../../store/authStore'
 import { authApi } from '../../api/authApi'
 import { ROLES, APPROVER_ROLES, MANAGEMENT_ROLES } from '../../utils/constants'
 import finpulseLogo from '../../assets/finpuls-logo.png'
+import AiChatWidget from '../../components/AiChatWidget'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
@@ -344,6 +345,14 @@ const AppLayout = () => {
           <Outlet />
         </Content>
       </Layout>
+
+      {/* AI Chat Widget — shown on Customers and LOS pages */}
+      {location.pathname.startsWith('/customers') && (
+        <AiChatWidget key="customer-widget" context="customer" />
+      )}
+      {location.pathname.startsWith('/los') && (
+        <AiChatWidget key="loan-widget" context="loan" />
+      )}
     </Layout>
   )
 }
