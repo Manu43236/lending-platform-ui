@@ -360,6 +360,7 @@ const EOD = () => {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [starting, setStarting]         = useState(false)
   const [drawerJobId, setDrawerJobId]   = useState(null)
+  const [pagination, setPagination]     = useState({ current: 1, pageSize: 10, total: 0 })
   const pollingRef = useRef(null)
 
   const isRunning = jobStatus?.status === 'RUNNING'
@@ -377,7 +378,8 @@ const EOD = () => {
         if (status?.status !== 'RUNNING') {
           stopPolling()
           if (status?.status === 'COMPLETED' || status?.status === 'FAILED') {
-            loadHistory()
+            setPagination(prev => ({ ...prev, current: 1 }))
+            loadHistory(0, pagination.pageSize)
           }
         }
       } catch { /* silent */ }
@@ -406,11 +408,13 @@ const EOD = () => {
     } catch { /* silent */ }
   }
 
-  const loadHistory = async () => {
+  const loadHistory = async (page = 0, size = 10) => {
     setHistoryLoading(true)
     try {
-      const res = await eodApi.getHistory({ page: 0, size: 10 })
-      setHistory(res.data?.data?.content || [])
+      const res = await eodApi.getHistory({ page, size })
+      const paged = res.data?.data
+      setHistory(paged?.content || [])
+      setPagination(prev => ({ ...prev, total: paged?.totalElements || 0 }))
     } catch { /* silent */ }
     finally { setHistoryLoading(false) }
   }
@@ -599,7 +603,19 @@ const EOD = () => {
           rowKey="id"
           size="small"
           loading={historyLoading}
-          pagination={{ pageSize: 10, size: 'small' }}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            size: 'small',
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            showTotal: (total) => `Total ${total} runs`,
+            onChange: (page, pageSize) => {
+              setPagination(prev => ({ ...prev, current: page, pageSize }))
+              loadHistory(page - 1, pageSize)
+            },
+          }}
           scroll={{ x: 900 }}
           locale={{ emptyText: 'No EOD runs recorded yet' }}
           columns={[
