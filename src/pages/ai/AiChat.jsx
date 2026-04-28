@@ -9,6 +9,7 @@ import {
   FileTextOutlined,
   RobotOutlined,
   UserOutlined,
+  RightOutlined,
 } from '@ant-design/icons'
 import { aiApi } from '../../api/aiApi'
 import { showError } from '../../utils/errorHandler'
@@ -24,6 +25,8 @@ const AiChat = () => {
   const [sessionStatus, setSessionStatus] = useState('ACTIVE')
   const [createdCustomer, setCreatedCustomer] = useState(null)
   const [createdLoan, setCreatedLoan] = useState(null)
+  const [options, setOptions] = useState([])
+  const [hideInput, setHideInput] = useState(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -54,6 +57,9 @@ const AiChat = () => {
       if (data?.sessionStatus) setSessionStatus(data.sessionStatus)
       if (data?.reply) addMessage('assistant', data.reply)
 
+      setOptions(data?.options || [])
+      setHideInput(data?.hideInput || false)
+
       if (data?.createdCustomerId) {
         setCreatedCustomer({
           id: data.createdCustomerId,
@@ -79,6 +85,12 @@ const AiChat = () => {
   }
 
   const handleSend = () => sendMessage(inputText)
+
+  const handleOption = (option) => {
+    setOptions([])
+    setHideInput(false)
+    sendMessage(option)
+  }
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -136,6 +148,31 @@ const AiChat = () => {
           </div>
         )}
 
+        {!loading && options.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingLeft: 36 }}>
+            {options.map((opt, i) => (
+              <Button
+                key={i}
+                onClick={() => handleOption(opt)}
+                style={{
+                  borderRadius: 20,
+                  borderColor: '#1B3A6B',
+                  color: '#1B3A6B',
+                  fontWeight: 500,
+                  fontSize: 13,
+                  height: 'auto',
+                  padding: '6px 16px',
+                  whiteSpace: 'normal',
+                  textAlign: 'left',
+                }}
+                icon={<RightOutlined style={{ fontSize: 10 }} />}
+              >
+                {opt}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {createdCustomer && (
           <SuccessCard
             icon={<UserAddOutlined />}
@@ -167,6 +204,7 @@ const AiChat = () => {
         background: '#fff',
         borderTop: '1px solid #f0f0f0',
       }}>
+        {!hideInput && (
         <Space.Compact style={{ width: '100%' }}>
           <Input.TextArea
             value={inputText}
@@ -192,6 +230,12 @@ const AiChat = () => {
             Send
           </Button>
         </Space.Compact>
+        )}
+        {hideInput && options.length > 0 && (
+          <div style={{ textAlign: 'center', color: '#aaa', fontSize: 12 }}>
+            Please select an option above
+          </div>
+        )}
 
         {sessionStatus === 'COMPLETED' && (
           <Alert
