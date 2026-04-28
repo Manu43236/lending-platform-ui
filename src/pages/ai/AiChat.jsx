@@ -59,6 +59,7 @@ const AiChat = () => {
           id: data.createdCustomerId,
           number: data.createdCustomerNumber,
           name: data.createdCustomerName,
+          action: data.customerAction,
         })
       }
 
@@ -138,7 +139,7 @@ const AiChat = () => {
         {createdCustomer && (
           <SuccessCard
             icon={<UserAddOutlined />}
-            title="Customer Created"
+            title={createdCustomer.action === 'FOUND' ? 'Customer Found' : 'Customer Created'}
             lines={[
               `Name: ${createdCustomer.name}`,
               `Customer No: ${createdCustomer.number}`,
