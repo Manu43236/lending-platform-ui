@@ -62,7 +62,7 @@ const WidgetInner = ({ context }) => {
     setLoading(true)
 
     try {
-      const res = await aiApi.chat(sessionId, text)
+      const res = await aiApi.chat(sessionId, text, createdCustomer?.id || null)
       const data = res.data?.data
 
       if (data?.sessionId) setSessionId(data.sessionId)
