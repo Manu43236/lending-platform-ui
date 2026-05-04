@@ -2,62 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Typography, Spin, Space, Tooltip } from 'antd'
 import {
-  RobotOutlined, SendOutlined, CloseOutlined, UserOutlined,
+  RobotOutlined, SendOutlined, CloseOutlined, UserOutlined, RightOutlined,
 } from '@ant-design/icons'
 import { aiApi } from '../api/aiApi'
-import { masterApi } from '../api/masterApi'
 import useAuthStore from '../store/authStore'
 import { ROLES } from '../utils/constants'
 
 const { Text, Paragraph } = Typography
-
-// ── Quick reply detection ────────────────────────────────────────────────────
-
-const detectQuickReplies = (text, loanTypes, loanPurposes) => {
-  const t = text.toLowerCase()
-
-  if (t.includes('shall i create') || t.includes('(yes/no)') || t.includes('yes/no')) {
-    return [
-      { label: '✓ Yes, proceed', value: 'yes' },
-      { label: '✗ No, cancel', value: 'no' },
-    ]
-  }
-
-  if ((t.includes('existing') && t.includes('new')) || t.includes('existing customer or a new')) {
-    return [
-      { label: 'Existing Customer', value: 'Existing customer' },
-      { label: 'New Customer', value: 'New customer' },
-    ]
-  }
-
-  if (t.includes('also want to apply') || t.includes('apply for a loan') || (t.includes('loan') && t.includes('would you like'))) {
-    return [
-      { label: 'Yes, apply for loan', value: 'yes' },
-      { label: 'No, done', value: 'no' },
-    ]
-  }
-
-  if (t.includes('salaried') && (t.includes('self-employed') || t.includes('self employed'))) {
-    return [
-      { label: 'Salaried', value: 'Salaried' },
-      { label: 'Self-Employed', value: 'Self-Employed' },
-    ]
-  }
-
-  if ((t.includes('loan type') || t.includes('type of loan')) && loanTypes.length > 0) {
-    return loanTypes.map((lt) => ({ label: lt.name, value: `${lt.name} (${lt.code})` }))
-  }
-
-  if ((t.includes('loan purpose') || t.includes('purpose of') || t.includes('what is the purpose')) && loanPurposes.length > 0) {
-    return loanPurposes.map((lp) => ({ label: lp.name, value: lp.name }))
-  }
-
-  if (t.includes('tenure') || t.includes('how many months') || t.includes('repay')) {
-    return [6, 12, 24, 36, 48, 60, 84, 120].map((m) => ({ label: `${m} mo`, value: `${m} months` }))
-  }
-
-  return []
-}
 
 // ── Main widget (role-gated) ─────────────────────────────────────────────────
 
@@ -79,17 +30,10 @@ const WidgetInner = ({ context }) => {
   const [sessionStatus, setSessionStatus] = useState('ACTIVE')
   const [createdCustomer, setCreatedCustomer] = useState(null)
   const [createdLoan, setCreatedLoan] = useState(null)
-  const [quickReplies, setQuickReplies] = useState([])
-  const [loanTypes, setLoanTypes] = useState([])
-  const [loanPurposes, setLoanPurposes] = useState([])
+  const [options, setOptions] = useState([])
+  const [hideInput, setHideInput] = useState(false)
   const messagesEndRef = useRef(null)
   const initialized = useRef(false)
-
-  // Fetch master data once
-  useEffect(() => {
-    masterApi.getLoanTypes().then((r) => setLoanTypes(r.data?.data || [])).catch(() => {})
-    masterApi.getLoanPurposes().then((r) => setLoanPurposes(r.data?.data || [])).catch(() => {})
-  }, [])
 
   // Init session when first opened
   useEffect(() => {
@@ -104,14 +48,15 @@ const WidgetInner = ({ context }) => {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
 
-  const addMessage = (role, content, extra = {}) =>
-    setMessages((prev) => [...prev, { role, content, ...extra, id: Date.now() + Math.random() }])
+  const addMessage = (role, content) =>
+    setMessages((prev) => [...prev, { role, content, id: Date.now() + Math.random() }])
 
   const sendMessage = async (text, isInit = false) => {
     if (loading) return
     if (!isInit && !text?.trim()) return
 
-    setQuickReplies([])
+    setOptions([])
+    setHideInput(false)
     if (text?.trim()) addMessage('user', text)
     setInputText('')
     setLoading(true)
@@ -122,27 +67,26 @@ const WidgetInner = ({ context }) => {
 
       if (data?.sessionId) setSessionId(data.sessionId)
       if (data?.sessionStatus) setSessionStatus(data.sessionStatus)
+      if (data?.reply) addMessage('assistant', data.reply)
 
-      if (data?.reply) {
-        addMessage('assistant', data.reply)
-        setQuickReplies(detectQuickReplies(data.reply, loanTypes, loanPurposes))
-      }
+      setOptions(data?.options || [])
+      setHideInput(data?.hideInput || false)
 
       if (data?.createdCustomerId) {
         setCreatedCustomer({
           id: data.createdCustomerId,
           number: data.createdCustomerNumber,
           name: data.createdCustomerName,
+          action: data.customerAction,
         })
-        setQuickReplies([])
       }
       if (data?.createdLoanId) {
         setCreatedLoan({ id: data.createdLoanId, number: data.createdLoanNumber })
-        setQuickReplies([])
       }
     } catch {
       addMessage('assistant', 'Sorry, something went wrong. Please try again.')
-      setQuickReplies([])
+      setOptions([])
+      setHideInput(false)
     } finally {
       setLoading(false)
     }
@@ -154,7 +98,11 @@ const WidgetInner = ({ context }) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  const handleQuickReply = (value) => sendMessage(value)
+  const handleOption = (opt) => {
+    setOptions([])
+    setHideInput(false)
+    sendMessage(opt)
+  }
 
   const handleNewSession = () => {
     setMessages([])
@@ -162,7 +110,8 @@ const WidgetInner = ({ context }) => {
     setSessionStatus('ACTIVE')
     setCreatedCustomer(null)
     setCreatedLoan(null)
-    setQuickReplies([])
+    setOptions([])
+    setHideInput(false)
     initialized.current = false
     setTimeout(() => {
       initialized.current = true
@@ -199,7 +148,7 @@ const WidgetInner = ({ context }) => {
       {open && (
         <div style={{
           position: 'fixed', bottom: 88, right: 24,
-          width: 380, height: 540,
+          width: 380, height: 560,
           background: '#fff', borderRadius: 12,
           boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
           zIndex: 1000,
@@ -215,7 +164,7 @@ const WidgetInner = ({ context }) => {
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text strong style={{ color: '#fff', fontSize: 14, display: 'block' }}>AI Assistant</Text>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>
-                {context === 'loan' ? 'Loan application onboarding' : 'Customer onboarding'}
+                Loan onboarding assistant
               </Text>
             </div>
             <div style={{
@@ -249,7 +198,7 @@ const WidgetInner = ({ context }) => {
 
             {createdCustomer && (
               <SuccessCard
-                title="Customer Created"
+                title={createdCustomer.action === 'FOUND' ? 'Customer Found' : 'Customer Created'}
                 lines={[createdCustomer.name, createdCustomer.number]}
                 actionLabel="View Customer"
                 onAction={() => { navigate(`/customers/${createdCustomer.id}`); setOpen(false) }}
@@ -267,35 +216,32 @@ const WidgetInner = ({ context }) => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick replies */}
-          {quickReplies.length > 0 && !isDone && (
+          {/* Options */}
+          {!loading && options.length > 0 && (
             <div style={{
-              padding: '8px 12px 0',
+              padding: '8px 12px 4px',
               background: '#fff',
               borderTop: '1px solid #f0f0f0',
               display: 'flex', flexWrap: 'wrap', gap: 6,
             }}>
-              {quickReplies.map((qr) => (
+              {options.map((opt, i) => (
                 <button
-                  key={qr.value}
-                  onClick={() => handleQuickReply(qr.value)}
+                  key={i}
+                  onClick={() => handleOption(opt)}
                   disabled={loading}
                   style={{
-                    padding: '5px 12px',
-                    borderRadius: 16,
-                    border: '1px solid #1B3A6B',
-                    background: '#fff',
-                    color: '#1B3A6B',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    transition: 'all 0.15s',
+                    padding: '5px 12px', borderRadius: 16,
+                    border: '1px solid #1B3A6B', background: '#fff',
+                    color: '#1B3A6B', fontSize: 12, cursor: 'pointer',
+                    fontWeight: 500, transition: 'all 0.15s',
                     opacity: loading ? 0.5 : 1,
+                    display: 'flex', alignItems: 'center', gap: 4,
                   }}
-                  onMouseEnter={(e) => { e.target.style.background = '#1B3A6B'; e.target.style.color = '#fff' }}
-                  onMouseLeave={(e) => { e.target.style.background = '#fff'; e.target.style.color = '#1B3A6B' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#1B3A6B'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#1B3A6B' }}
                 >
-                  {qr.label}
+                  <RightOutlined style={{ fontSize: 9 }} />
+                  {opt}
                 </button>
               ))}
             </div>
@@ -303,8 +249,8 @@ const WidgetInner = ({ context }) => {
 
           {/* Input */}
           <div style={{
-            padding: quickReplies.length > 0 ? '8px 12px 10px' : '10px 12px',
-            borderTop: quickReplies.length > 0 ? 'none' : '1px solid #f0f0f0',
+            padding: '8px 12px 10px',
+            borderTop: options.length > 0 ? 'none' : '1px solid #f0f0f0',
             background: '#fff', flexShrink: 0,
           }}>
             {isDone ? (
@@ -312,6 +258,10 @@ const WidgetInner = ({ context }) => {
                 <Button size="small" type="primary" ghost onClick={handleNewSession}>
                   Start New Session
                 </Button>
+              </div>
+            ) : hideInput && options.length > 0 ? (
+              <div style={{ textAlign: 'center', color: '#aaa', fontSize: 11 }}>
+                Please select an option above
               </div>
             ) : (
               <Space.Compact style={{ width: '100%' }}>
@@ -321,17 +271,14 @@ const WidgetInner = ({ context }) => {
                   onKeyDown={handleKeyDown}
                   placeholder="Type a message…"
                   disabled={loading}
-                  style={{ borderRadius: '6px 0 0 6px', fontSize: 13, color: '#333', background: '#fff' }}
+                  style={{ borderRadius: '6px 0 0 6px', fontSize: 13 }}
                 />
                 <Button
                   type="primary"
                   icon={<SendOutlined style={{ color: '#fff' }} />}
                   onClick={handleSend}
                   disabled={loading || !inputText.trim()}
-                  style={{
-                    background: '#1B3A6B', borderColor: '#1B3A6B',
-                    borderRadius: '0 6px 6px 0', color: '#fff',
-                  }}
+                  style={{ background: '#1B3A6B', borderColor: '#1B3A6B', borderRadius: '0 6px 6px 0' }}
                 />
               </Space.Compact>
             )}
