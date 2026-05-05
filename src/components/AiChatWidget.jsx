@@ -72,13 +72,17 @@ const WidgetInner = ({ context }) => {
       setOptions(data?.options || [])
       setHideInput(data?.hideInput || false)
 
-      if (data?.createdCustomerId) {
-        setCreatedCustomer({
+      if (data?.createdCustomerId && !createdCustomer) {
+        const customer = {
           id: data.createdCustomerId,
           number: data.createdCustomerNumber,
           name: data.createdCustomerName,
           action: data.customerAction,
-        })
+        }
+        setCreatedCustomer(customer)
+        setMessages((prev) => [...prev, {
+          role: 'customer-card', id: Date.now() + Math.random(), customer,
+        }])
       }
       if (data?.createdLoanId) {
         setCreatedLoan({ id: data.createdLoanId, number: data.createdLoanNumber })
@@ -182,7 +186,17 @@ const WidgetInner = ({ context }) => {
             flex: 1, overflowY: 'auto', padding: '14px',
             background: '#f5f7fa', display: 'flex', flexDirection: 'column', gap: 10,
           }}>
-            {messages.map((msg) => <WidgetBubble key={msg.id} msg={msg} />)}
+            {messages.map((msg) =>
+              msg.role === 'customer-card'
+                ? <SuccessCard
+                    key={msg.id}
+                    title={msg.customer.action === 'FOUND' ? 'Customer Found' : 'Customer Created'}
+                    lines={[msg.customer.name, msg.customer.number]}
+                    actionLabel="View Customer"
+                    onAction={() => { navigate(`/customers/${msg.customer.id}`); setOpen(false) }}
+                  />
+                : <WidgetBubble key={msg.id} msg={msg} />
+            )}
 
             {loading && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -196,14 +210,6 @@ const WidgetInner = ({ context }) => {
               </div>
             )}
 
-            {createdCustomer && (
-              <SuccessCard
-                title={createdCustomer.action === 'FOUND' ? 'Customer Found' : 'Customer Created'}
-                lines={[createdCustomer.name, createdCustomer.number]}
-                actionLabel="View Customer"
-                onAction={() => { navigate(`/customers/${createdCustomer.id}`); setOpen(false) }}
-              />
-            )}
             {createdLoan && (
               <SuccessCard
                 title="Loan Application Created"
