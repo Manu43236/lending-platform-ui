@@ -128,7 +128,9 @@ const PhaseCard = ({ phase }) => {
           {/* All metrics */}
           {isCompleted && phase.metrics && Object.keys(phase.metrics).length > 0 && (
             <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {Object.entries(phase.metrics).map(([key, val]) => (
+              {Object.entries(phase.metrics)
+                .filter(([key]) => !SKIP_METRIC_KEYS.has(key))
+                .map(([key, val]) => (
                 <Tooltip key={key} title={key}>
                   <Tag style={{ margin: 0, fontSize: 11, cursor: 'default' }}>
                     {formatMetricKey(key)}: <b>{formatMetricVal(val)}</b>
@@ -147,35 +149,87 @@ const PhaseCard = ({ phase }) => {
   )
 }
 
+const SKIP_METRIC_KEYS = new Set(['statusDistribution', 'branchWiseLoans'])
+
 const formatMetricKey = (key) => {
   const MAP = {
+    // Phase 1 — Pre-EOD
+    dbStatus: 'DB Status',
+    totalLoansInDb: 'Total Loans',
+    alreadyRanToday: 'Ran Today',
+    cutoffTime: 'Cutoff Time',
+    businessDate: 'Business Date',
+    // Phase 2 — Loan Processing
     totalLoansProcessed: 'Loans',
     totalEmisProcessed: 'EMIs',
-    emisMarkedOverdue: 'Overdue',
-    emisAlreadyPaid: 'Paid',
+    emisMarkedOverdue: 'Overdue EMIs',
+    emisAlreadyPaid: 'Paid EMIs',
     loansMarkedActive: 'Active',
+    loansMarkedOverdue: 'Overdue',
     loansMarkedNpa: 'NPA',
+    loansStayedDisbursed: 'Disbursed',
     penaltiesApplied: 'Penalties',
-    totalDailyInterestAccrued: 'Interest',
-    mandatesPresented: 'NACH',
+    // Phase 3 — Interest
+    loansProcessed: 'Loans',
+    totalDailyInterestAccrued: 'Interest Accrued',
+    // Phase 4 — NACH
+    mandatesPresented: 'Mandates',
     successCount: 'Success',
     bounceCount: 'Bounced',
     totalCollected: 'Collected',
+    successRate: 'Success Rate',
+    // Phase 5 — Collections
+    totalOverdueLoans: 'Overdue Loans',
+    bucket_1_30_days: '1-30 Days',
+    bucket_31_60_days: '31-60 Days',
+    bucket_61_90_days: '61-90 Days',
+    bucket_above_90_days: '>90 Days',
     customersAlerted: 'Alerted',
-    totalOverdueLoans: 'Overdue',
+    totalOverdueAmount: 'Overdue Amt',
+    // Phase 6 — Provisioning
     loansProvisioned: 'Provisioned',
     totalProvisionAmount: 'Provision',
+    standard: 'Standard',
+    subStandard: 'Sub-Standard',
+    doubtful1: 'Doubtful-1',
+    doubtful2: 'Doubtful-2',
+    loss: 'Loss',
     glEntriesGenerated: 'GL Entries',
+    // Phase 7 — Regulatory
+    reportDate: 'Report Date',
+    totalLoans: 'Total Loans',
+    npaLoans: 'NPA Loans',
+    overdueLoans: 'Overdue Loans',
+    activeLoans: 'Active Loans',
+    totalOutstanding: 'Outstanding',
+    npaOutstanding: 'NPA Outstanding',
     npaRatioPct: 'NPA%',
+    rbiReportStatus: 'RBI Report',
     cibilRecordsQueued: 'CIBIL',
+    cibilUploadStatus: 'CIBIL Status',
+    // Phase 8 — Reports
+    totalLoansInPortfolio: 'Portfolio',
+    totalDisbursedAmount: 'Disbursed',
+    totalOutstandingAmount: 'Outstanding',
+    totalPenalties: 'Penalties',
     reportsGenerated: 'Reports',
+    // Phase 9 — Archival
     archivableLoansIdentified: 'Archivable',
+    archivalCutoffDate: 'Cutoff Date',
+    tempRecordsPurged: 'Purged',
+    archivalStatus: 'Archival',
+    // Phase 10 — Next Day Prep
     emisDueTomorrow: 'Due Tomorrow',
     expectedCollectionAmount: 'Exp. Collection',
-    reconciliationPassed: 'Reconciled',
+    nachMandatesToPresent: 'NACH Mandates',
+    dateRolloverStatus: 'Rollover',
+    // Phase 11 — Verification
     totalLoansVerified: 'Verified',
-    dbStatus: 'DB',
-    alreadyRanToday: 'Ran Today',
+    totalOverdue: 'Overdue',
+    closedLoans: 'Closed',
+    invalidRecords: 'Invalid',
+    reconciliationPassed: 'Reconciled',
+    eodCompletionStatus: 'EOD Status',
   }
   return MAP[key] || key
 }
@@ -262,7 +316,9 @@ const JobDetailDrawer = ({ jobId, open, onClose }) => {
           {/* Metrics */}
           {isCompleted && p.metrics && Object.keys(p.metrics).length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-              {Object.entries(p.metrics).map(([key, val]) => (
+              {Object.entries(p.metrics)
+                .filter(([key]) => !SKIP_METRIC_KEYS.has(key))
+                .map(([key, val]) => (
                 <Tooltip key={key} title={key}>
                   <Tag style={{ fontSize: 11, margin: 0 }}>
                     {formatMetricKey(key)}: <b>{formatMetricVal(val)}</b>
