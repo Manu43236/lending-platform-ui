@@ -100,3 +100,12 @@ export const maskAadhaar = (aadhar) => {
   if (!aadhar) return '—'
   return `XXXX XXXX ${aadhar.slice(-4)}`
 }
+
+// Format enum/code — SNAKE_CASE → Title Case (e.g. LOAN_OFFICER → Loan Officer)
+export const formatEnum = (value) => {
+  if (!value) return '—'
+  return value
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}

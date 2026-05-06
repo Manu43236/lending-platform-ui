@@ -22,7 +22,7 @@ import { penaltyApi } from '../../api/penaltyApi'
 import { documentApi } from '../../api/documentApi'
 import { masterApi } from '../../api/masterApi'
 import {
-  formatCurrency, formatDate, formatPercent, formatTenure, formatDPD,
+  formatCurrency, formatDate, formatPercent, formatTenure, formatDPD, formatEnum,
 } from '../../utils/formatters'
 import { loanStatusColors, emiStatusColors } from '../../theme/colors'
 import { showError, showSuccess } from '../../utils/errorHandler'
@@ -631,7 +631,7 @@ const DisbursementTab = ({ loan, onStatusChange }) => {
               <Col xs={24} md={12}>
                 <Descriptions column={1} size="small" labelStyle={{ color: '#888', width: 200 }}>
                   <Descriptions.Item label="Disbursement No.">{disbursement.disbursementNumber}</Descriptions.Item>
-                  <Descriptions.Item label="Mode">{disbursement.disbursementMode}</Descriptions.Item>
+                  <Descriptions.Item label="Mode">{formatEnum(disbursement.disbursementMode)}</Descriptions.Item>
                   <Descriptions.Item label="Disbursement Amount">{formatCurrency(disbursement.disbursementAmount, 0)}</Descriptions.Item>
                   <Descriptions.Item label="Processing Fee">{formatCurrency(disbursement.processingFee, 0)}</Descriptions.Item>
                   <Descriptions.Item label="Net Disbursement">
@@ -867,7 +867,7 @@ const CollateralTab = ({ loanNumber, loanStatus }) => {
           >
             <Descriptions column={2} size="small" labelStyle={{ color: '#888' }}>
               <Descriptions.Item label="Collateral No.">{collateral.collateralNumber}</Descriptions.Item>
-              <Descriptions.Item label="Type">{collateral.collateralType}</Descriptions.Item>
+              <Descriptions.Item label="Type">{formatEnum(collateral.collateralType)}</Descriptions.Item>
               <Descriptions.Item label="Valuation">{formatCurrency(collateral.valuationAmount, 0)}</Descriptions.Item>
               <Descriptions.Item label="LTV">{formatPercent(collateral.ltvPercentage)}</Descriptions.Item>
               <Descriptions.Item label="Remarks" span={2}>{collateral.remarks || '—'}</Descriptions.Item>

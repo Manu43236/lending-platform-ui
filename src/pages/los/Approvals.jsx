@@ -6,7 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import DataTable from '../../components/DataTable'
 import { loanApi } from '../../api/loanApi'
 import { approvalApi } from '../../api/approvalApi'
-import { formatCurrency, formatDate } from '../../utils/formatters'
+import { formatCurrency, formatDate, formatEnum } from '../../utils/formatters'
 import { loanStatusColors } from '../../theme/colors'
 import { showError } from '../../utils/errorHandler'
 
@@ -133,7 +133,7 @@ const Approvals = () => {
         return h
           ? <Space direction="vertical" size={0}>
               <span style={{ fontWeight: 500 }}>{h.approvedByName}</span>
-              <span style={{ fontSize: 11, color: '#999' }}>{h.roleCode?.replace(/_/g, ' ')}</span>
+              <span style={{ fontSize: 11, color: '#999' }}>{formatEnum(h.roleCode)}</span>
             </Space>
           : <span style={{ color: '#bbb' }}>Pending</span>
       },

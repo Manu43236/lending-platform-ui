@@ -5,7 +5,7 @@ import {
 import { SearchOutlined, CheckCircleFilled, LockOutlined, SafetyOutlined } from '@ant-design/icons'
 import PageHeader from '../../components/PageHeader'
 import { loanApi } from '../../api/loanApi'
-import { formatCurrency, formatDate, formatTenure } from '../../utils/formatters'
+import { formatCurrency, formatDate, formatTenure, formatEnum } from '../../utils/formatters'
 import { showError, showSuccess } from '../../utils/errorHandler'
 
 const CLOSEABLE_STATUSES = ['ACTIVE', 'OVERDUE', 'NPA']
@@ -96,7 +96,7 @@ const LoanClosure = () => {
                   loan.loanStatusCode === 'OVERDUE' ? 'warning' :
                   loan.loanStatusCode === 'NPA'     ? 'error' : 'default'
                 }>
-                  {loan.loanStatusCode}
+                  {formatEnum(loan.loanStatusCode)}
                 </Tag>
               }
             >
@@ -157,7 +157,7 @@ const LoanClosure = () => {
 
               {!canClose && !alreadyClosed && (
                 <Alert type="info" showIcon
-                  message={`Loan closure is only available for ACTIVE, OVERDUE, or NPA loans. Current status: ${loan.loanStatusCode}`} />
+                  message={`Loan closure is only available for Active, Overdue, or NPA loans. Current status: ${formatEnum(loan.loanStatusCode)}`} />
               )}
             </Card>
           </Col>
@@ -196,7 +196,7 @@ const LoanClosure = () => {
                       <Space>
                         <SafetyOutlined style={{ color: '#52c41a' }} />
                         <span style={{ color: '#52c41a', fontWeight: 600 }}>
-                          {summary.collateralType} — Released
+                          {formatEnum(summary.collateralType)} — Released
                         </span>
                       </Space>
                     </Descriptions.Item>

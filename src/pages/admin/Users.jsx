@@ -8,6 +8,7 @@ import PageHeader from '../../components/PageHeader'
 import { userApi } from '../../api/userApi'
 import { masterApi } from '../../api/masterApi'
 import { showError } from '../../utils/errorHandler'
+import { formatEnum } from '../../utils/formatters'
 
 const AdminUsers = () => {
   const [users, setUsers]           = useState([])
@@ -101,7 +102,7 @@ const AdminUsers = () => {
               onClose={(e) => { e.preventDefault(); handleRemoveRole(record.employeeId, r.roleCode) }}
               style={{ fontSize: 11 }}
             >
-              {r.roleCode}
+              {formatEnum(r.roleCode)}
             </Tag>
           ))}
           <Tooltip title="Manage roles">

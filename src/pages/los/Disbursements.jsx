@@ -6,7 +6,7 @@ import PageHeader from '../../components/PageHeader'
 import DataTable from '../../components/DataTable'
 import { loanApi } from '../../api/loanApi'
 import { disbursementApi } from '../../api/disbursementApi'
-import { formatCurrency, formatDate } from '../../utils/formatters'
+import { formatCurrency, formatDate, formatEnum } from '../../utils/formatters'
 import { loanStatusColors } from '../../theme/colors'
 import { showError } from '../../utils/errorHandler'
 
@@ -131,7 +131,7 @@ const Disbursements = () => {
       key: 'mode',
       render: (_, row) => {
         const d = disbMap[row.loanNumber]
-        return d ? <Tag>{d.disbursementMode}</Tag> : <span style={{ color: '#bbb' }}>—</span>
+        return d ? <Tag>{formatEnum(d.disbursementMode)}</Tag> : <span style={{ color: '#bbb' }}>—</span>
       },
     },
     {

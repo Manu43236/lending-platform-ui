@@ -10,7 +10,7 @@ import DataTable from '../../components/DataTable'
 import { loanApi } from '../../api/loanApi'
 import { emiPaymentApi } from '../../api/emiPaymentApi'
 import { penaltyApi } from '../../api/penaltyApi'
-import { formatCurrency, formatDate } from '../../utils/formatters'
+import { formatCurrency, formatDate, formatEnum } from '../../utils/formatters'
 import { showError, showSuccess } from '../../utils/errorHandler'
 
 const { RangePicker } = DatePicker
@@ -538,7 +538,7 @@ const ProcessPayment = () => {
                   loan.loanStatusCode === 'ACTIVE'    ? 'success' :
                   loan.loanStatusCode === 'OVERDUE'   ? 'warning' :
                   loan.loanStatusCode === 'NPA'       ? 'error' : 'default'
-                }>{loan.loanStatusCode}</Tag>
+                }>{formatEnum(loan.loanStatusCode)}</Tag>
               </Space>
             </Card>
           </Col>
@@ -547,7 +547,7 @@ const ProcessPayment = () => {
           <Col xs={24} md={10}>
             {!canPay ? (
               <Alert type="info" showIcon
-                message={`Payments not allowed for loans in ${loan.loanStatusCode} status.`}
+                message={`Payments not allowed for loans in ${formatEnum(loan.loanStatusCode)} status.`}
                 description="Only DISBURSED, CURRENT, ACTIVE, OVERDUE and NPA loans can accept payments." />
             ) : (
               <Card title="Process Payment" size="small" style={{ borderRadius: 10 }}>

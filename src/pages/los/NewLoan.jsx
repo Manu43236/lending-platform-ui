@@ -9,7 +9,7 @@ import PageHeader from '../../components/PageHeader'
 import { loanApi } from '../../api/loanApi'
 import { customerApi } from '../../api/customerApi'
 import { masterApi } from '../../api/masterApi'
-import { formatCurrency, formatPercent } from '../../utils/formatters'
+import { formatCurrency, formatPercent, formatEnum } from '../../utils/formatters'
 import { showError, showSuccess } from '../../utils/errorHandler'
 import useAuthStore from '../../store/authStore'
 
@@ -190,7 +190,7 @@ const NewLoan = () => {
                     </Col>
                     <Col span={12} style={{ marginTop: 6 }}>
                       <Text type="secondary" style={{ fontSize: 12 }}>Employment</Text>
-                      <div style={{ fontSize: 13 }}>{selectedCustomer.employmentType?.replace('_', ' ') || '—'}</div>
+                      <div style={{ fontSize: 13 }}>{formatEnum(selectedCustomer.employmentType)}</div>
                     </Col>
                     <Col span={12} style={{ marginTop: 6 }}>
                       <Text type="secondary" style={{ fontSize: 12 }}>Credit Score</Text>
