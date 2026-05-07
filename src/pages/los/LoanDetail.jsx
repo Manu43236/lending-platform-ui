@@ -701,10 +701,44 @@ const EmiScheduleTab = ({ loanNumber }) => {
 }
 
 // ── Payments Tab ──────────────────────────────────────────────────────────────
-const PaymentsTab = ({ loanNumber, loanStatus }) => {
+const PaymentsTab = ({ loanNumber, loan }) => {
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [oldestEmi, setOldestEmi] = useState(null)
+  const [unpaidPenaltiesTotal, setUnpaidPenaltiesTotal] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const loanStatus = loan?.loanStatusCode
   const canPay = ['ACTIVE', 'OVERDUE', 'NPA'].includes(loanStatus)
+
+  useEffect(() => {
+    if (!canPay) return
+    setLoading(true)
+    Promise.all([
+      loanApi.getEmiSchedule(loanNumber),
+      penaltyApi.getByLoan(loanNumber, { page: 0, size: 200 }),
+    ]).then(([emiRes, penaltyRes]) => {
+      const schedule = emiRes.data?.data || []
+      const oldest = schedule
+        .filter(e => ['OVERDUE', 'PARTIALLY_PAID', 'PENDING'].includes(e.status))
+        .sort((a, b) => a.emiNumber - b.emiNumber)[0] || null
+      setOldestEmi(oldest)
+
+      const penalties = penaltyRes.data?.data?.content || penaltyRes.data?.data || []
+      const penaltyTotal = penalties
+        .filter(p => p.status !== 'PAID' && p.status !== 'WAIVED')
+        .reduce((sum, p) => sum + ((p.penaltyAmount || 0) - (p.paidAmount || 0)), 0)
+      setUnpaidPenaltiesTotal(penaltyTotal)
+
+      if (oldest) {
+        const emiDue = oldest.emiAmount - (oldest.amountPaid || 0)
+        const totalDue = Math.round((penaltyTotal + emiDue) * 100) / 100
+        form.setFieldsValue({ emiNumber: oldest.emiNumber, paymentAmount: totalDue })
+      }
+    }).catch(() => {})
+      .finally(() => setLoading(false))
+  }, [loanNumber, canPay, refreshKey])
 
   const handlePayment = async (values) => {
     setSubmitting(true)
@@ -720,60 +754,111 @@ const PaymentsTab = ({ loanNumber, loanStatus }) => {
       })
       showSuccess('Payment processed successfully.')
       form.resetFields()
+      setRefreshKey(k => k + 1)
     } catch (err) { showError(err, 'Payment failed') }
     finally { setSubmitting(false) }
   }
 
   if (!canPay) {
-    return (
-      <Alert type="info" showIcon message="Payment processing is only available for Active, Overdue and NPA loans." />
-    )
+    return <Alert type="info" showIcon message="Payment processing is only available for Active, Overdue and NPA loans." />
   }
 
+  if (loading) return <Spin style={{ display: 'block', marginTop: 40 }} />
+
+  const emiDue = oldestEmi ? (oldestEmi.emiAmount - (oldestEmi.amountPaid || 0)) : 0
+  const totalDue = unpaidPenaltiesTotal + emiDue
+  const npaCount = loan?.npaRecoveryPaymentCount || 0
+
   return (
-    <Card title="Process EMI Payment" size="small" style={{ borderRadius: 10, maxWidth: 600 }}>
-      <Form form={form} layout="vertical" onFinish={handlePayment} requiredMark="optional">
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item label="EMI Number" name="emiNumber" rules={[{ required: true }]}>
-              <InputNumber style={{ width: '100%' }} min={1} placeholder="e.g. 1" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label="Payment Amount (₹)" name="paymentAmount" rules={[{ required: true }]}>
-              <InputNumber style={{ width: '100%' }} min={1} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label="Payment Mode" name="paymentMode" rules={[{ required: true }]}>
-              <Select placeholder="Select mode">
-                {['NACH', 'UPI', 'NEFT', 'RTGS', 'CASH', 'CHEQUE'].map((m) => (
-                  <Option key={m} value={m}>{m}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label="Payment Date" name="paymentDate" rules={[{ required: true }]}>
-              <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label="Transaction ID" name="transactionId">
-              <Input placeholder="Optional" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item label="Reference Number" name="referenceNumber">
-              <Input placeholder="Optional" />
-            </Form.Item>
-          </Col>
-        </Row>
-        <Button type="primary" htmlType="submit" loading={submitting} icon={<CreditCardOutlined />}>
-          Process Payment
-        </Button>
-      </Form>
-    </Card>
+    <Row gutter={[16, 16]}>
+      <Col span={24} style={{ maxWidth: 620 }}>
+        {loanStatus === 'NPA' && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={`NPA Recovery: ${npaCount} / 3 full EMI payments made — ${Math.max(0, 3 - npaCount)} more needed to restore loan to ACTIVE`}
+          />
+        )}
+        {oldestEmi ? (
+          <Card size="small" style={{ borderRadius: 10, marginBottom: 12, background: '#fafafa', border: '1px solid #e8e8e8' }}>
+            <Row gutter={16}>
+              <Col span={unpaidPenaltiesTotal > 0 ? 8 : 12}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  EMI #{oldestEmi.emiNumber} due {formatDate(oldestEmi.dueDate)}
+                  {oldestEmi.status === 'PARTIALLY_PAID' ? ' (partial)' : ''}
+                </Text>
+                <div><Text strong>{formatCurrency(emiDue, 0)}</Text></div>
+              </Col>
+              {unpaidPenaltiesTotal > 0 && (
+                <Col span={8}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>Unpaid Penalties</Text>
+                  <div><Text strong style={{ color: '#cf1322' }}>{formatCurrency(unpaidPenaltiesTotal, 0)}</Text></div>
+                </Col>
+              )}
+              <Col span={unpaidPenaltiesTotal > 0 ? 8 : 12}>
+                <Text type="secondary" style={{ fontSize: 12 }}>Total Due</Text>
+                <div><Text strong style={{ fontSize: 16 }}>{formatCurrency(totalDue, 0)}</Text></div>
+              </Col>
+            </Row>
+          </Card>
+        ) : (
+          <Alert type="success" showIcon message="No pending EMIs." style={{ marginBottom: 12 }} />
+        )}
+      </Col>
+
+      {oldestEmi && (
+        <Col span={24}>
+          <Card title="Process EMI Payment" size="small" style={{ borderRadius: 10, maxWidth: 620 }}>
+            <Form form={form} layout="vertical" onFinish={handlePayment} requiredMark="optional">
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="EMI Number" name="emiNumber" rules={[{ required: true }]}>
+                    <InputNumber style={{ width: '100%' }} min={1} disabled />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label={unpaidPenaltiesTotal > 0 ? 'Payment Amount (₹) — includes penalties' : 'Payment Amount (₹)'}
+                    name="paymentAmount"
+                    rules={[{ required: true }]}
+                  >
+                    <InputNumber style={{ width: '100%' }} min={1} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Payment Mode" name="paymentMode" rules={[{ required: true }]}>
+                    <Select placeholder="Select mode">
+                      {['NACH', 'UPI', 'NEFT', 'RTGS', 'CASH', 'CHEQUE'].map((m) => (
+                        <Option key={m} value={m}>{m}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Payment Date" name="paymentDate" rules={[{ required: true }]}>
+                    <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Transaction ID" name="transactionId">
+                    <Input placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Reference Number" name="referenceNumber">
+                    <Input placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Button type="primary" htmlType="submit" loading={submitting} icon={<CreditCardOutlined />}>
+                Process Payment
+              </Button>
+            </Form>
+          </Card>
+        </Col>
+      )}
+    </Row>
   )
 }
 
@@ -983,7 +1068,7 @@ const LoanDetail = () => {
     { key: 'approval',    label: <Space><CheckCircleOutlined />Approval</Space>,children: <ApprovalTab loanNumber={loanNumber} loanStatus={loan.loanStatusCode} onStatusChange={fetchLoan} /> },
     { key: 'disbursement',label: <Space><DollarOutlined />Disbursement</Space>, children: <DisbursementTab loan={loan} onStatusChange={fetchLoan} /> },
     { key: 'emi-schedule',label: <Space><ClockCircleOutlined />EMI Schedule</Space>, children: <EmiScheduleTab loanNumber={loanNumber} /> },
-    { key: 'payments',    label: <Space><CreditCardOutlined />Payments</Space>, children: <PaymentsTab loanNumber={loanNumber} loanStatus={loan.loanStatusCode} /> },
+    { key: 'payments',    label: <Space><CreditCardOutlined />Payments</Space>, children: <PaymentsTab loanNumber={loanNumber} loan={loan} /> },
     { key: 'collateral',  label: <Space><SafetyOutlined />Collateral</Space>,   children: <CollateralTab loanNumber={loanNumber} loanStatus={loan.loanStatusCode} /> },
     { key: 'penalties',   label: <Space><WarningOutlined />Penalties</Space>,   children: <PenaltiesTab loanNumber={loanNumber} /> },
     { key: 'timeline',    label: <Space><ClockCircleOutlined />Timeline</Space>,children: <TimelineTab loanNumber={loanNumber} /> },
