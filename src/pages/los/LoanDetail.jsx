@@ -733,8 +733,8 @@ const PaymentsTab = ({ loanNumber, loan }) => {
 
       if (oldest) {
         const emiDue = oldest.emiAmount - (oldest.amountPaid || 0)
-        const totalDue = Math.round((penaltyTotal + emiDue) * 100) / 100
-        form.setFieldsValue({ emiNumber: oldest.emiNumber, paymentAmount: totalDue })
+        const totalDue = Math.round(penaltyTotal + emiDue)
+        form.setFieldsValue({ emiNumber: oldest.emiNumber, paymentAmount: totalDue, paymentDate: dayjs() })
       }
     }).catch(() => {})
       .finally(() => setLoading(false))
@@ -819,9 +819,10 @@ const PaymentsTab = ({ loanNumber, loan }) => {
                 </Col>
                 <Col span={12}>
                   <Form.Item
-                    label={unpaidPenaltiesTotal > 0 ? 'Payment Amount (₹) — includes penalties' : 'Payment Amount (₹)'}
+                    label="Payment Amount (₹)"
                     name="paymentAmount"
                     rules={[{ required: true }]}
+                    extra={unpaidPenaltiesTotal > 0 ? <Text type="secondary" style={{ fontSize: 11 }}>Includes ₹{Math.round(unpaidPenaltiesTotal).toLocaleString()} penalties</Text> : null}
                   >
                     <InputNumber style={{ width: '100%' }} min={1} />
                   </Form.Item>
