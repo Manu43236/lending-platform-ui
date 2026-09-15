@@ -1,8 +1,12 @@
 import axios from 'axios'
 import { Modal } from 'antd'
 
+const runtimeBaseUrl = window.location.origin
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  // Prefer explicit env config; otherwise call API on same host as frontend.
+  baseURL: configuredBaseUrl || runtimeBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
