@@ -96,7 +96,7 @@ const ActiveLoans = () => {
   ]
 
   const filtered = search
-    ? loans.filter((l) =>
+    ? allLoans.filter((l) =>
         l.loanNumber?.toLowerCase().includes(search.toLowerCase()) ||
         l.customerName?.toLowerCase().includes(search.toLowerCase())
       )
