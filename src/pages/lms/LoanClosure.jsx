@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react'
 import {
-  Input, Card, Row, Col, Alert, Button, Descriptions, Tag, Space, Modal, Divider,
+  Input, Card, Row, Col, Alert, Button, Descriptions, Tag, Space, Modal, Divider, Form, Select, DatePicker,
 } from 'antd'
-import { SearchOutlined, CheckCircleFilled, LockOutlined, SafetyOutlined } from '@ant-design/icons'
+import { SearchOutlined, CheckCircleFilled, LockOutlined, SafetyOutlined, CreditCardOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import PageHeader from '../../components/PageHeader'
 import { loanApi } from '../../api/loanApi'
+import { emiPaymentApi } from '../../api/emiPaymentApi'
 import { formatCurrency, formatDate, formatTenure, formatEnum } from '../../utils/formatters'
 import { showError, showSuccess } from '../../utils/errorHandler'
 
@@ -18,6 +20,10 @@ const LoanClosure = () => {
   const [searched, setSearched]     = useState(false)
   const [summary, setSummary]       = useState(null)   // closure summary after close
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+  const [bulkResult, setBulkResult] = useState(null)
+  const [bulkForm] = Form.useForm()
 
   const fetchLoan = useCallback(async () => {
     if (!search.trim()) return
@@ -51,6 +57,24 @@ const LoanClosure = () => {
     } finally {
       setClosing(false)
     }
+  }
+
+  const handleBulkPayment = async (values) => {
+    setBulkSubmitting(true)
+    try {
+      const res = await emiPaymentApi.bulkClear({
+        loanNumber: loan.loanNumber,
+        paymentMode: values.paymentMode,
+        paymentDate: values.paymentDate ? values.paymentDate.format('YYYY-MM-DD') : undefined,
+        transactionId: values.transactionId,
+        referenceNumber: values.referenceNumber,
+      })
+      setBulkResult(res.data?.data)
+      bulkForm.resetFields()
+      const loanRes = await loanApi.getByLoanNumber(loan.loanNumber)
+      setLoan(loanRes.data?.data)
+    } catch (err) { showError(err, 'Bulk payment failed') }
+    finally { setBulkSubmitting(false) }
   }
 
   const canClose = loan && CLOSEABLE_STATUSES.includes(loan.loanStatusCode)
@@ -143,6 +167,16 @@ const LoanClosure = () => {
                     <Alert type="warning" showIcon
                       message="Pending penalties exist. Pay or waive all penalties before closure." />
                   )}
+                  {loan.numberOfOverdueEmis > 0 && (
+                    <Button
+                      block
+                      icon={<CreditCardOutlined />}
+                      onClick={() => { setBulkResult(null); setBulkModal(true) }}
+                      style={{ background: '#fa8c16', borderColor: '#fa8c16', color: '#fff' }}
+                    >
+                      Pay All Outstanding ({loan.numberOfOverdueEmis} EMIs)
+                    </Button>
+                  )}
                   <Button
                     type="primary"
                     danger
@@ -207,6 +241,72 @@ const LoanClosure = () => {
           )}
         </Row>
       )}
+
+      {/* Bulk Payment Modal */}
+      <Modal
+        title="Pay All Outstanding EMIs"
+        open={bulkModal}
+        onCancel={() => { setBulkModal(false); setBulkResult(null) }}
+        footer={null}
+        width={460}
+      >
+        {bulkResult ? (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 12 }} />
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>All EMIs Cleared!</div>
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+              {[
+                { label: 'EMIs Cleared', value: bulkResult.emisCleared },
+                { label: 'Penalties Cleared', value: formatCurrency(bulkResult.penaltiesCleared, 0) },
+                { label: 'Total Paid', value: formatCurrency(bulkResult.totalAmountPaid, 0) },
+                { label: 'Loan Status', value: bulkResult.newLoanStatus },
+              ].map(s => (
+                <Col span={12} key={s.label}>
+                  <div style={{ background: '#f6ffed', borderRadius: 8, padding: '10px 12px', border: '1px solid #b7eb8f' }}>
+                    <div style={{ fontSize: 11, color: '#888' }}>{s.label}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#237804' }}>{s.value}</div>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            <Button type="primary" onClick={() => { setBulkModal(false); setBulkResult(null) }}>
+              Done — Now Close Loan
+            </Button>
+          </div>
+        ) : (
+          <Form form={bulkForm} layout="vertical" onFinish={handleBulkPayment} requiredMark="optional">
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item label="Payment Mode" name="paymentMode" rules={[{ required: true }]}>
+                  <Select placeholder="Select mode">
+                    {['NACH', 'UPI', 'NEFT', 'RTGS', 'CASH', 'CHEQUE'].map(m => (
+                      <Select.Option key={m} value={m}>{m}</Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Payment Date" name="paymentDate" rules={[{ required: true }]} initialValue={dayjs()}>
+                  <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Transaction ID" name="transactionId">
+                  <Input placeholder="Optional" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Reference Number" name="referenceNumber">
+                  <Input placeholder="Optional" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Button type="primary" danger block htmlType="submit" loading={bulkSubmitting} icon={<CreditCardOutlined />}>
+              Confirm — Pay All {loan?.numberOfOverdueEmis} Overdue EMIs
+            </Button>
+          </Form>
+        )}
+      </Modal>
 
       {/* Confirm Modal */}
       <Modal

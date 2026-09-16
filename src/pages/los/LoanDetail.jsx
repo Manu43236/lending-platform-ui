@@ -703,9 +703,14 @@ const EmiScheduleTab = ({ loanNumber }) => {
 // ── Payments Tab ──────────────────────────────────────────────────────────────
 const PaymentsTab = ({ loanNumber, loan }) => {
   const [form] = Form.useForm()
+  const [bulkForm] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkResult, setBulkResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [oldestEmi, setOldestEmi] = useState(null)
+  const [overdueCount, setOverdueCount] = useState(0)
   const [unpaidPenaltiesTotal, setUnpaidPenaltiesTotal] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -724,6 +729,7 @@ const PaymentsTab = ({ loanNumber, loan }) => {
         .filter(e => ['OVERDUE', 'PARTIALLY_PAID', 'PENDING'].includes(e.status))
         .sort((a, b) => a.emiNumber - b.emiNumber)[0] || null
       setOldestEmi(oldest)
+      setOverdueCount(schedule.filter(e => ['OVERDUE', 'PARTIALLY_PAID'].includes(e.status)).length)
 
       const penalties = penaltyRes.data?.data?.content || penaltyRes.data?.data || []
       const penaltyTotal = penalties
@@ -757,6 +763,23 @@ const PaymentsTab = ({ loanNumber, loan }) => {
       setRefreshKey(k => k + 1)
     } catch (err) { showError(err, 'Payment failed') }
     finally { setSubmitting(false) }
+  }
+
+  const handleBulkPayment = async (values) => {
+    setBulkSubmitting(true)
+    try {
+      const res = await emiPaymentApi.bulkClear({
+        loanNumber,
+        paymentMode: values.paymentMode,
+        paymentDate: values.paymentDate ? values.paymentDate.format('YYYY-MM-DD') : undefined,
+        transactionId: values.transactionId,
+        referenceNumber: values.referenceNumber,
+      })
+      setBulkResult(res.data?.data)
+      bulkForm.resetFields()
+      setRefreshKey(k => k + 1)
+    } catch (err) { showError(err, 'Bulk payment failed') }
+    finally { setBulkSubmitting(false) }
   }
 
   if (!canPay) {
@@ -806,6 +829,21 @@ const PaymentsTab = ({ loanNumber, loan }) => {
           <Alert type="success" showIcon message="No pending EMIs." style={{ marginBottom: 12 }} />
         )}
       </Col>
+
+      {overdueCount > 1 && (
+        <Col span={24} style={{ maxWidth: 620 }}>
+          <Button
+            block
+            size="large"
+            type="primary"
+            danger
+            style={{ marginBottom: 8 }}
+            onClick={() => { setBulkResult(null); setBulkModal(true) }}
+          >
+            Pay All Outstanding ({overdueCount} EMIs + {formatCurrency(unpaidPenaltiesTotal, 0)} penalties)
+          </Button>
+        </Col>
+      )}
 
       {oldestEmi && (
         <Col span={24}>
@@ -859,6 +897,82 @@ const PaymentsTab = ({ loanNumber, loan }) => {
           </Card>
         </Col>
       )}
+
+      {/* Bulk Payment Modal */}
+      <Modal
+        title="Pay All Outstanding EMIs"
+        open={bulkModal}
+        onCancel={() => { setBulkModal(false); setBulkResult(null) }}
+        footer={null}
+        width={480}
+      >
+        {bulkResult ? (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 12 }} />
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>All EMIs Cleared!</div>
+            <Row gutter={[12, 12]}>
+              {[
+                { label: 'EMIs Cleared', value: bulkResult.emisCleared },
+                { label: 'Penalties Cleared', value: formatCurrency(bulkResult.penaltiesCleared, 0) },
+                { label: 'Total Paid', value: formatCurrency(bulkResult.totalAmountPaid, 0) },
+                { label: 'New Loan Status', value: bulkResult.newLoanStatus },
+              ].map(s => (
+                <Col span={12} key={s.label}>
+                  <div style={{ background: '#f6ffed', borderRadius: 8, padding: '10px 12px', border: '1px solid #b7eb8f' }}>
+                    <div style={{ fontSize: 11, color: '#888' }}>{s.label}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#237804' }}>{s.value}</div>
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            <Button type="primary" style={{ marginTop: 16 }} onClick={() => { setBulkModal(false); setBulkResult(null) }}>
+              Done
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div style={{ background: '#fff7e6', borderRadius: 8, padding: '12px 16px', marginBottom: 16, border: '1px solid #ffd591' }}>
+              <Row gutter={16}>
+                <Col span={8}><div style={{ fontSize: 11, color: '#888' }}>Overdue EMIs</div><div style={{ fontWeight: 700, color: '#cf1322' }}>{overdueCount}</div></Col>
+                <Col span={8}><div style={{ fontSize: 11, color: '#888' }}>Penalties</div><div style={{ fontWeight: 700, color: '#cf1322' }}>{formatCurrency(unpaidPenaltiesTotal, 0)}</div></Col>
+                <Col span={8}>
+                  <div style={{ fontSize: 11, color: '#888' }}>Grand Total</div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{formatCurrency((loan?.numberOfOverdueEmis || overdueCount) * (oldestEmi?.emiAmount || 0) + unpaidPenaltiesTotal, 0)}</div>
+                </Col>
+              </Row>
+            </div>
+            <Form form={bulkForm} layout="vertical" onFinish={handleBulkPayment} requiredMark="optional">
+              <Row gutter={12}>
+                <Col span={12}>
+                  <Form.Item label="Payment Mode" name="paymentMode" rules={[{ required: true }]}>
+                    <Select placeholder="Select mode">
+                      {['NACH', 'UPI', 'NEFT', 'RTGS', 'CASH', 'CHEQUE'].map(m => <Option key={m} value={m}>{m}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Payment Date" name="paymentDate" rules={[{ required: true }]} initialValue={dayjs()}>
+                    <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Transaction ID" name="transactionId">
+                    <Input placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Reference Number" name="referenceNumber">
+                    <Input placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Button type="primary" danger block htmlType="submit" loading={bulkSubmitting} icon={<CreditCardOutlined />}>
+                Confirm — Pay All Outstanding
+              </Button>
+            </Form>
+          </>
+        )}
+      </Modal>
     </Row>
   )
 }
