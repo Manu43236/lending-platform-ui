@@ -237,27 +237,27 @@ const Dashboard = () => {
 
       {/* ── Row 1: Pipeline KPIs ─────────────────────────────────────────────── */}
       <Row gutter={[16, 16]}>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Total Customers" value={totalCustomers}
             icon={<UserOutlined style={{ fontSize: 20, color: brand.primary }} />} iconBg="#e6f0ff" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Total Loans" value={loans.length}
             icon={<FileTextOutlined style={{ fontSize: 20, color: '#096dd9' }} />} iconBg="#e6f4ff" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="In Pipeline" value={underAssessment} sub="Under assessment"
             icon={<FileTextOutlined style={{ fontSize: 20, color: '#d46b08' }} />} iconBg="#fff7e6" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Approved" value={approved} sub="Pending disbursal"
             icon={<CheckCircleOutlined style={{ fontSize: 20, color: '#096dd9' }} />} iconBg="#e6f4ff" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Disbursed" value={disbursed} sub="Awaiting activation"
             icon={<DollarOutlined style={{ fontSize: 20, color: '#531dab' }} />} iconBg="#f9f0ff" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Closed" value={closed}
             icon={<BankOutlined style={{ fontSize: 20, color: '#595959' }} />} iconBg="#f5f5f5" />
         </Col>
@@ -265,27 +265,27 @@ const Dashboard = () => {
 
       {/* ── Row 2: Portfolio Health ───────────────────────────────────────────── */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Active Loans" value={activeLoans} sub="Live portfolio"
             icon={<BankOutlined style={{ fontSize: 20, color: '#237804' }} />} iconBg="#f6ffed" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Overdue Loans" value={overdueLoans} sub="Requires follow-up" trend="down"
             icon={<WarningOutlined style={{ fontSize: 20, color: '#cf1322' }} />} iconBg="#fff1f0" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="NPA Accounts" value={npaLoans} sub="DPD > 90" trend="down"
             icon={<ExclamationCircleOutlined style={{ fontSize: 20, color: '#fff' }} />} iconBg="#a8071a" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Total AUM" value={formatCurrencyShort(totalAUM)} sub="Live portfolio outstanding"
             icon={<DollarOutlined style={{ fontSize: 20, color: brand.primary }} />} iconBg="#e6f0ff" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="Total Overdue" value={formatCurrencyShort(totalOverdueAmt)} sub="Overdue + NPA" trend="down"
             icon={<WarningOutlined style={{ fontSize: 20, color: '#d46b08' }} />} iconBg="#fff7e6" />
         </Col>
-        <Col xs={12} sm={8} md={4}>
+        <Col xs={12} md={8} xl={4}>
           <KpiCard loading={loading} label="PAR Ratio" value={`${parRatio}%`} sub="Portfolio at risk"
             trend={parseFloat(parRatio) > 5 ? 'down' : undefined}
             icon={<RiseOutlined style={{ fontSize: 20, color: parseFloat(parRatio) > 5 ? '#cf1322' : '#52c41a' }} />}
