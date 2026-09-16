@@ -55,8 +55,8 @@ const Penalties = () => {
     const filtered = !q
       ? all
       : all.filter((p) =>
-          p.loan?.loanNumber?.toLowerCase().includes(q) ||
-          p.customer?.customerName?.toLowerCase().includes(q) ||
+          p.loanNumber?.toLowerCase().includes(q) ||
+          p.customerName?.toLowerCase().includes(q) ||
           p.penaltyName?.toLowerCase().includes(q) ||
           p.penaltyCode?.toLowerCase().includes(q)
         )
@@ -69,8 +69,8 @@ const Penalties = () => {
     const filtered = !q
       ? all
       : all.filter((p) =>
-          p.loan?.loanNumber?.toLowerCase().includes(q) ||
-          p.customer?.customerName?.toLowerCase().includes(q) ||
+          p.loanNumber?.toLowerCase().includes(q) ||
+          p.customerName?.toLowerCase().includes(q) ||
           p.penaltyName?.toLowerCase().includes(q) ||
           p.penaltyCode?.toLowerCase().includes(q)
         )
@@ -109,7 +109,7 @@ const Penalties = () => {
       width: 155,
       render: (_, row) => (
         <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#1B3A6B', fontWeight: 600 }}>
-          {row.loan?.loanNumber || '—'}
+          {row.loanNumber || '—'}
         </span>
       ),
     },
@@ -117,10 +117,7 @@ const Penalties = () => {
       title: 'Customer',
       key: 'customer',
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
-          <span style={{ fontWeight: 500 }}>{row.customer?.customerName || '—'}</span>
-          <span style={{ fontSize: 11, color: '#999', fontFamily: 'monospace' }}>{row.customer?.customerNumber || ''}</span>
-        </Space>
+        <span style={{ fontWeight: 500 }}>{row.customerName || '—'}</span>
       ),
     },
     {
@@ -250,7 +247,7 @@ const Penalties = () => {
           <div style={{ marginBottom: 16, padding: '10px 12px', background: '#fff1f0', borderRadius: 8 }}>
             <div style={{ fontWeight: 600 }}>{waiveModal.penalty.penaltyName} ({waiveModal.penalty.penaltyCode})</div>
             <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>
-              Loan: <strong>{waiveModal.penalty.loan?.loanNumber}</strong> &nbsp;|&nbsp;
+              Loan: <strong>{waiveModal.penalty.loanNumber}</strong> &nbsp;|&nbsp;
               Amount: <strong style={{ color: '#cf1322' }}>{formatCurrency(waiveModal.penalty.penaltyAmount, 2)}</strong>
             </div>
           </div>
