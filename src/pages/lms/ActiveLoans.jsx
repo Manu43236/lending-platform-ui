@@ -242,7 +242,7 @@ const ActiveLoans = () => {
         dataSource={filtered}
         loading={loading}
         rowKey="id"
-        pagination={pagination}
+        pagination={search ? null : pagination}
         onPageChange={(page, size) => fetchLoans(page, size)}
         onRow={(row) => ({
           onClick: () => navigate('/los/applications/' + row.loanNumber),
