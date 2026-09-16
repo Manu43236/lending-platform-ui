@@ -79,7 +79,7 @@ const AppLayout = () => {
       icon: <BankOutlined />,
       label: 'LMS',
       children: [
-        { key: '/lms/active-loans', label: 'Active Loans',  roles: null },
+        { key: '/lms/active-loans', label: 'Loans',  roles: null },
         { key: '/lms/emi-schedule', label: 'EMI Schedule',  roles: null },
         { key: '/lms/payments',     label: 'Payments',      roles: null },
         { key: '/lms/closure',      label: 'Loan Closure',  roles: MANAGEMENT_ROLES },

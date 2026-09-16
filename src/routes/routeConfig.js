@@ -19,7 +19,7 @@ const routeConfig = [
   { path: '/los/collaterals', label: 'Collaterals', allowedRoles: [ROLES.CREDIT_ANALYST, ROLES.RISK_MANAGER, ROLES.OPERATIONS_MANAGER, ROLES.ADMIN] },
 
   // LMS
-  { path: '/lms/active-loans', label: 'Active Loans', allowedRoles: null },
+  { path: '/lms/active-loans', label: 'Loans', allowedRoles: null },
   { path: '/lms/emi-schedule', label: 'EMI Schedule', allowedRoles: null },
   { path: '/lms/payments', label: 'Payments', allowedRoles: null },
   { path: '/lms/closure', label: 'Loan Closure', allowedRoles: MANAGEMENT_ROLES },

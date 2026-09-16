@@ -11,7 +11,7 @@ import { showError } from '../../utils/errorHandler'
 
 const { Option } = Select
 
-const PORTFOLIO_STATUSES = ['DISBURSED', 'CURRENT', 'ACTIVE', 'OVERDUE', 'NPA']
+const PORTFOLIO_STATUSES = ['DISBURSED', 'CURRENT', 'ACTIVE', 'OVERDUE', 'NPA', 'CLOSED']
 
 const DPD_BUCKET = (dpd) => {
   if (!dpd || dpd === 0) return { label: 'Current', color: '#52c41a', bg: '#f6ffed' }
@@ -76,7 +76,8 @@ const ActiveLoans = () => {
     active:        allLoans.filter((l) => l.loanStatusCode === 'ACTIVE').length,
     overdue:       allLoans.filter((l) => l.loanStatusCode === 'OVERDUE').length,
     npa:           allLoans.filter((l) => l.loanStatusCode === 'NPA').length,
-    totalAum:      allLoans.reduce((s, l) => s + (l.outstandingAmount || 0), 0),
+    closed:        allLoans.filter((l) => l.loanStatusCode === 'CLOSED').length,
+    totalAum:      allLoans.filter((l) => l.loanStatusCode !== 'CLOSED').reduce((s, l) => s + (l.outstandingAmount || 0), 0),
     totalOverdue:  allLoans.filter((l) => l.loanStatusCode === 'OVERDUE' || l.loanStatusCode === 'NPA').reduce((s, l) => s + (l.totalOverdueAmount || 0), 0),
   }
   const par = portfolioStats.totalAum > 0
@@ -85,10 +86,10 @@ const ActiveLoans = () => {
 
   const SUMMARY_CARDS = [
     { label: 'Disbursed',    value: portfolioStats.disbursed, color: '#1890ff', filter: 'DISBURSED' },
-    { label: 'Current',      value: portfolioStats.current,   color: '#13c2c2', filter: 'CURRENT' },
     { label: 'Active',       value: portfolioStats.active,    color: '#52c41a', filter: 'ACTIVE' },
     { label: 'Overdue',      value: portfolioStats.overdue,   color: '#fa8c16', filter: 'OVERDUE' },
     { label: 'NPA',          value: portfolioStats.npa,       color: '#f5222d', filter: 'NPA' },
+    { label: 'Closed',       value: portfolioStats.closed,    color: '#8c8c8c', filter: 'CLOSED' },
     { label: 'Total AUM',    value: formatCurrency(portfolioStats.totalAum, 0), color: '#722ed1', filter: null },
     { label: 'Overdue Amt',  value: formatCurrency(portfolioStats.totalOverdue, 0), color: '#fa8c16', filter: null },
     { label: 'PAR %',        value: par + '%', color: portfolioStats.totalOverdue > 0 ? '#f5222d' : '#52c41a', filter: null },
@@ -189,9 +190,9 @@ const ActiveLoans = () => {
   return (
     <>
       <PageHeader
-        title="Active Loan Portfolio"
-        subtitle="ACTIVE · OVERDUE · NPA accounts with DPD and outstanding tracking"
-        breadcrumbs={[{ label: 'LMS' }, { label: 'Active Loans' }]}
+        title="Loans"
+        subtitle="All loans — Active, Overdue, NPA, Closed. Click a row to open loan details."
+        breadcrumbs={[{ label: 'LMS' }, { label: 'Loans' }]}
       />
 
       {/* Summary cards */}
