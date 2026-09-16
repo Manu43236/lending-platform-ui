@@ -15,7 +15,7 @@ export const masterApi = {
 
   // Tenures by loan type
   getTenures: (loanTypeCode) =>
-    api.get('/api/masters/tenures', { params: { loanTypeCode } }),
+    api.get(`/api/masters/tenures/${loanTypeCode}`),
 
   // Processing fee config by loan type
   getProcessingFeeConfig: (loanTypeCode) =>

@@ -26,7 +26,7 @@ const KpiCard = ({ label, value, sub, icon, iconBg, trend, loading }) => (
   <Card
     size="small"
     loading={loading}
-    style={{ borderRadius: 10, height: '100%' }}
+    style={{ borderRadius: 10 }}
     bodyStyle={{ padding: '16px 20px' }}
   >
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
