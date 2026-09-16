@@ -42,4 +42,9 @@ export const masterApi = {
 
   // All roles
   getRoles: () => api.get('/api/masters/roles'),
+
+  // Pre-closure charge configs
+  getPreClosureConfigs: () => api.get('/api/masters/pre-closure-configs'),
+  createPreClosureConfig: (data) => api.post('/api/masters/pre-closure-configs', data),
+  updatePreClosureConfig: (id, data) => api.put(`/api/masters/pre-closure-configs/${id}`, data),
 }

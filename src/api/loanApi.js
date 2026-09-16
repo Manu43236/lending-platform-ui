@@ -25,4 +25,10 @@ export const loanApi = {
 
   // Close loan
   close: (loanNumber) => api.post(`/api/loans/${loanNumber}/close`),
+
+  // Pre-closure quote (breakdown before payment)
+  preClosureQuote: (loanNumber) => api.get(`/api/loans/${loanNumber}/pre-closure-quote`),
+
+  // Execute pre-closure
+  preClose: (loanNumber, data) => api.post(`/api/loans/${loanNumber}/pre-close`, data),
 }

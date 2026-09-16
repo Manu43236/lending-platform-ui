@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Tag, Button, Tabs, Select, Space, Row, Col, Statistic } from 'antd'
-import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
+import { Card, Table, Tag, Button, Tabs, Select, Space, Row, Col, Statistic, Modal, Form, Input, InputNumber, Switch, Tooltip } from 'antd'
+import { ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons'
 import PageHeader from '../../components/PageHeader'
 import { masterApi } from '../../api/masterApi'
 import { formatCurrency, formatDateTime } from '../../utils/formatters'
@@ -189,13 +189,173 @@ const DocumentTypes = () => {
   )
 }
 
+// ─── Pre-Closure Charges ─────────────────────────────────────────────────────
+const PreClosureConfig = () => {
+  const [data, setData]           = useState([])
+  const [loanTypes, setLoanTypes] = useState([])
+  const [loading, setLoading]     = useState(false)
+  const [modal, setModal]         = useState({ open: false, record: null })
+  const [saving, setSaving]       = useState(false)
+  const [form]                    = Form.useForm()
+  const load = async () => {
+    setLoading(true)
+    try {
+      const [cfgRes, typesRes] = await Promise.all([
+        masterApi.getPreClosureConfigs(),
+        masterApi.getLoanTypes(),
+      ])
+      setData(cfgRes.data?.data || [])
+      setLoanTypes(typesRes.data?.data || [])
+    } catch (err) { showError(err) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const openAdd = () => {
+    form.resetFields()
+    form.setFieldsValue({ isActive: true, chargeType: 'PERCENTAGE' })
+    setModal({ open: true, record: null })
+  }
+
+  const openEdit = (record) => {
+    form.setFieldsValue({
+      loanTypeId: record.loanType?.id,
+      chargeType: record.chargeType,
+      chargeValue: record.chargeValue,
+      minCharge: record.minCharge,
+      maxCharge: record.maxCharge,
+      isActive: record.isActive,
+    })
+    setModal({ open: true, record })
+  }
+
+  const handleSave = async (values) => {
+    setSaving(true)
+    try {
+      const payload = {
+        chargeType: values.chargeType,
+        chargeValue: values.chargeValue,
+        minCharge: values.minCharge || null,
+        maxCharge: values.maxCharge || null,
+        isActive: values.isActive,
+        loanType: { id: values.loanTypeId },
+      }
+      if (modal.record) {
+        await masterApi.updatePreClosureConfig(modal.record.id, payload)
+      } else {
+        await masterApi.createPreClosureConfig(payload)
+      }
+      setModal({ open: false, record: null })
+      load()
+    } catch (err) { showError(err, 'Save failed') }
+    finally { setSaving(false) }
+  }
+
+  const columns = [
+    { title: 'Loan Type',    dataIndex: ['loanType', 'name'], key: 'loanType', render: (v) => <Tag color="blue">{v}</Tag> },
+    { title: 'Charge Type',  dataIndex: 'chargeType',         key: 'chargeType', render: (v) => <Tag color={v === 'PERCENTAGE' ? 'purple' : 'orange'}>{v}</Tag> },
+    {
+      title: 'Charge Value', key: 'chargeValue',
+      render: (_, r) => r.chargeType === 'PERCENTAGE'
+        ? <span style={{ fontWeight: 700, color: '#722ed1' }}>{r.chargeValue}%</span>
+        : <span style={{ fontWeight: 700, color: '#d46b08' }}>₹{r.chargeValue?.toLocaleString()}</span>,
+    },
+    { title: 'Min Charge',   dataIndex: 'minCharge',   key: 'minCharge',  render: (v) => v != null ? `₹${v.toLocaleString()}` : '—', align: 'center' },
+    { title: 'Max Charge',   dataIndex: 'maxCharge',   key: 'maxCharge',  render: (v) => v != null ? `₹${v.toLocaleString()}` : '—', align: 'center' },
+    { title: 'Status',       dataIndex: 'isActive',    key: 'isActive',   render: (v) => <Tag color={v ? 'success' : 'default'}>{v ? 'Active' : 'Inactive'}</Tag> },
+    {
+      title: '', key: 'actions',
+      render: (_, r) => (
+        <Tooltip title="Edit">
+          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+        </Tooltip>
+      ),
+    },
+  ]
+
+  const chargeTypeValue = Form.useWatch('chargeType', form)
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>Add Config</Button>
+      </div>
+      <Table
+        dataSource={data}
+        columns={columns}
+        rowKey="id"
+        size="small"
+        loading={loading}
+        pagination={false}
+        locale={{ emptyText: 'No pre-closure charge configs found' }}
+      />
+
+      <Modal
+        title={modal.record ? 'Edit Pre-Closure Charge' : 'Add Pre-Closure Charge'}
+        open={modal.open}
+        onCancel={() => setModal({ open: false, record: null })}
+        onOk={() => form.submit()}
+        okText="Save"
+        confirmLoading={saving}
+        width={440}
+      >
+        <Form form={form} layout="vertical" onFinish={handleSave} requiredMark="optional" style={{ marginTop: 16 }}>
+          <Form.Item label="Loan Type" name="loanTypeId" rules={[{ required: true, message: 'Select loan type' }]}>
+            <Select placeholder="Select loan type" options={loanTypes.map(t => ({ value: t.id, label: t.name }))} />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item label="Charge Type" name="chargeType" rules={[{ required: true }]}>
+                <Select options={[{ value: 'PERCENTAGE', label: 'Percentage (%)' }, { value: 'FLAT', label: 'Flat Amount (₹)' }]} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label={chargeTypeValue === 'PERCENTAGE' ? 'Charge %' : 'Charge Amount (₹)'}
+                name="chargeValue"
+                rules={[{ required: true, message: 'Enter charge value' }]}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  max={chargeTypeValue === 'PERCENTAGE' ? 100 : undefined}
+                  addonAfter={chargeTypeValue === 'PERCENTAGE' ? '%' : '₹'}
+                />
+              </Form.Item>
+            </Col>
+            {chargeTypeValue === 'PERCENTAGE' && (
+              <>
+                <Col span={12}>
+                  <Form.Item label="Min Charge (₹)" name="minCharge">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Max Charge (₹)" name="maxCharge">
+                    <InputNumber style={{ width: '100%' }} min={0} placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
+          </Row>
+          <Form.Item label="Active" name="isActive" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  )
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 const AdminMasters = () => {
   const tabs = [
-    { key: 'loanTypes',    label: 'Loan Types',          children: <LoanTypes /> },
-    { key: 'interestRates', label: 'Interest Rate Config', children: <InterestRates /> },
-    { key: 'purposes',     label: 'Loan Purposes',        children: <LoanPurposes /> },
-    { key: 'documents',    label: 'Document Types',       children: <DocumentTypes /> },
+    { key: 'loanTypes',      label: 'Loan Types',              children: <LoanTypes /> },
+    { key: 'interestRates',  label: 'Interest Rate Config',     children: <InterestRates /> },
+    { key: 'purposes',       label: 'Loan Purposes',            children: <LoanPurposes /> },
+    { key: 'documents',      label: 'Document Types',           children: <DocumentTypes /> },
+    { key: 'preClosureConfig', label: 'Pre-Closure Charges',    children: <PreClosureConfig /> },
   ]
 
   return (

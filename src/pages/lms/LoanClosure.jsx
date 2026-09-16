@@ -1,29 +1,33 @@
 import { useState, useCallback } from 'react'
 import {
-  Input, Card, Row, Col, Alert, Button, Descriptions, Tag, Space, Modal, Divider, Form, Select, DatePicker,
+  Input, Card, Row, Col, Alert, Button, Descriptions, Tag, Space, Modal, Divider, Form, Select, DatePicker, Spin, Statistic,
 } from 'antd'
-import { SearchOutlined, CheckCircleFilled, LockOutlined, SafetyOutlined, CreditCardOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { SearchOutlined, CheckCircleFilled, LockOutlined, SafetyOutlined, CreditCardOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import PageHeader from '../../components/PageHeader'
 import { loanApi } from '../../api/loanApi'
-import { emiPaymentApi } from '../../api/emiPaymentApi'
 import { formatCurrency, formatDate, formatTenure, formatEnum } from '../../utils/formatters'
 import { showError, showSuccess } from '../../utils/errorHandler'
 
 const CLOSEABLE_STATUSES = ['ACTIVE', 'OVERDUE', 'NPA']
+const PAYMENT_MODES = ['NACH', 'UPI', 'NEFT', 'RTGS', 'CASH', 'CHEQUE']
 
 const LoanClosure = () => {
-  const [search, setSearch]         = useState('')
-  const [loan, setLoan]             = useState(null)
-  const [loading, setLoading]       = useState(false)
-  const [closing, setClosing]       = useState(false)
-  const [searched, setSearched]     = useState(false)
-  const [summary, setSummary]       = useState(null)   // closure summary after close
+  const [search, setSearch]           = useState('')
+  const [loan, setLoan]               = useState(null)
+  const [loading, setLoading]         = useState(false)
+  const [closing, setClosing]         = useState(false)
+  const [searched, setSearched]       = useState(false)
+  const [summary, setSummary]         = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [bulkModal, setBulkModal] = useState(false)
-  const [bulkSubmitting, setBulkSubmitting] = useState(false)
-  const [bulkResult, setBulkResult] = useState(null)
-  const [bulkForm] = Form.useForm()
+
+  // Pre-closure state
+  const [preCloseModal, setPreCloseModal]       = useState(false)
+  const [quote, setQuote]                       = useState(null)
+  const [quoteLoading, setQuoteLoading]         = useState(false)
+  const [preCloseSubmitting, setPreCloseSubmitting] = useState(false)
+  const [preCloseResult, setPreCloseResult]     = useState(null)
+  const [preCloseForm]                          = Form.useForm()
 
   const fetchLoan = useCallback(async () => {
     if (!search.trim()) return
@@ -48,7 +52,6 @@ const LoanClosure = () => {
       setSummary(res.data?.data)
       setConfirmOpen(false)
       showSuccess('Loan closed successfully.')
-      // Refresh loan
       const loanRes = await loanApi.getByLoanNumber(loan.loanNumber)
       setLoan(loanRes.data?.data)
     } catch (err) {
@@ -59,32 +62,49 @@ const LoanClosure = () => {
     }
   }
 
-  const handleBulkPayment = async (values) => {
-    setBulkSubmitting(true)
+  const openPreCloseModal = async () => {
+    setPreCloseResult(null)
+    preCloseForm.resetFields()
+    preCloseForm.setFieldsValue({ paymentDate: dayjs() })
+    setPreCloseModal(true)
+    setQuoteLoading(true)
+    setQuote(null)
     try {
-      const res = await emiPaymentApi.bulkClear({
-        loanNumber: loan.loanNumber,
+      const res = await loanApi.preClosureQuote(loan.loanNumber)
+      setQuote(res.data?.data)
+    } catch (err) {
+      showError(err, 'Could not load pre-closure quote')
+      setPreCloseModal(false)
+    } finally {
+      setQuoteLoading(false)
+    }
+  }
+
+  const handlePreClose = async (values) => {
+    setPreCloseSubmitting(true)
+    try {
+      const res = await loanApi.preClose(loan.loanNumber, {
         paymentMode: values.paymentMode,
         paymentDate: values.paymentDate ? values.paymentDate.format('YYYY-MM-DD') : undefined,
         transactionId: values.transactionId,
         referenceNumber: values.referenceNumber,
       })
-      setBulkResult(res.data?.data)
-      bulkForm.resetFields()
+      setPreCloseResult(res.data?.data)
       const loanRes = await loanApi.getByLoanNumber(loan.loanNumber)
       setLoan(loanRes.data?.data)
-    } catch (err) { showError(err, 'Bulk payment failed') }
-    finally { setBulkSubmitting(false) }
+    } catch (err) { showError(err, 'Pre-closure failed') }
+    finally { setPreCloseSubmitting(false) }
   }
 
   const canClose = loan && CLOSEABLE_STATUSES.includes(loan.loanStatusCode)
   const alreadyClosed = loan?.loanStatusCode === 'CLOSED'
+  const hasBlockers = loan && (loan.numberOfOverdueEmis > 0 || loan.totalPenaltyAmount > 0)
 
   return (
     <>
       <PageHeader
         title="Loan Closure"
-        subtitle="Close fully repaid loan accounts and release collateral"
+        subtitle="Close fully repaid loan accounts or pre-close with outstanding balance"
         breadcrumbs={[{ label: 'LMS' }, { label: 'Loan Closure' }]}
       />
 
@@ -159,39 +179,55 @@ const LoanClosure = () => {
 
               {canClose && !summary && (
                 <Space direction="vertical" style={{ width: '100%' }}>
-                  {loan.numberOfOverdueEmis > 0 && (
-                    <Alert type="warning" showIcon
-                      message={`${loan.numberOfOverdueEmis} overdue EMI(s) detected. All EMIs must be PAID before closure.`} />
+                  {hasBlockers && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      icon={<WarningOutlined />}
+                      message="Outstanding balance detected"
+                      description={`${loan.numberOfOverdueEmis > 0 ? `${loan.numberOfOverdueEmis} overdue EMI(s)` : ''}${loan.numberOfOverdueEmis > 0 && loan.totalPenaltyAmount > 0 ? ' + ' : ''}${loan.totalPenaltyAmount > 0 ? `penalties ${formatCurrency(loan.totalPenaltyAmount, 0)}` : ''}. Use Pre-close Loan to settle everything in one payment.`}
+                    />
                   )}
-                  {loan.totalPenaltyAmount > 0 && (
-                    <Alert type="warning" showIcon
-                      message="Pending penalties exist. Pay or waive all penalties before closure." />
-                  )}
-                  {loan.numberOfOverdueEmis > 0 && (
-                    <Button
-                      block
-                      icon={<CreditCardOutlined />}
-                      onClick={() => { setBulkResult(null); setBulkModal(true) }}
-                      style={{ background: '#fa8c16', borderColor: '#fa8c16', color: '#fff' }}
-                    >
-                      Pay All Outstanding ({loan.numberOfOverdueEmis} EMIs)
-                    </Button>
-                  )}
+                  {/* Pre-close is the primary action when there are blockers */}
                   <Button
                     type="primary"
-                    danger
-                    icon={<LockOutlined />}
+                    icon={<CreditCardOutlined />}
                     block
-                    onClick={() => setConfirmOpen(true)}
+                    onClick={openPreCloseModal}
+                    style={hasBlockers
+                      ? { background: '#d46b08', borderColor: '#d46b08' }
+                      : { background: '#1B3A6B', borderColor: '#1B3A6B' }
+                    }
                   >
-                    Close Loan
+                    Pre-close Loan (Pay All &amp; Close)
                   </Button>
+                  {!hasBlockers && (
+                    <Button
+                      type="primary"
+                      danger
+                      icon={<LockOutlined />}
+                      block
+                      onClick={() => setConfirmOpen(true)}
+                    >
+                      Close Loan (All EMIs Paid)
+                    </Button>
+                  )}
+                  {hasBlockers && (
+                    <Button
+                      danger
+                      icon={<LockOutlined />}
+                      block
+                      onClick={() => setConfirmOpen(true)}
+                    >
+                      Force Close (All EMIs must be PAID first)
+                    </Button>
+                  )}
                 </Space>
               )}
 
               {!canClose && !alreadyClosed && (
                 <Alert type="info" showIcon
-                  message={`Loan closure is only available for Active, Overdue, or NPA loans. Current status: ${formatEnum(loan.loanStatusCode)}`} />
+                  message={`Loan closure is only available for Active, Overdue, or NPA loans. Current: ${formatEnum(loan.loanStatusCode)}`} />
               )}
             </Card>
           </Col>
@@ -200,12 +236,7 @@ const LoanClosure = () => {
           {summary && (
             <Col xs={24} md={12}>
               <Card
-                title={
-                  <Space>
-                    <CheckCircleFilled style={{ color: '#52c41a' }} />
-                    Closure Summary
-                  </Space>
-                }
+                title={<Space><CheckCircleFilled style={{ color: '#52c41a' }} />Closure Summary</Space>}
                 size="small"
                 style={{ borderRadius: 10, borderColor: '#b7eb8f' }}
               >
@@ -242,73 +273,132 @@ const LoanClosure = () => {
         </Row>
       )}
 
-      {/* Bulk Payment Modal */}
+      {/* Pre-Closure Modal */}
       <Modal
-        title="Pay All Outstanding EMIs"
-        open={bulkModal}
-        onCancel={() => { setBulkModal(false); setBulkResult(null) }}
+        title="Pre-close Loan — Pay All &amp; Close"
+        open={preCloseModal}
+        onCancel={() => { setPreCloseModal(false); setPreCloseResult(null) }}
         footer={null}
-        width={460}
+        width={520}
+        destroyOnClose
       >
-        {bulkResult ? (
+        {preCloseResult ? (
+          /* ── Success view ── */
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 12 }} />
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>All EMIs Cleared!</div>
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <CheckCircleOutlined style={{ fontSize: 52, color: '#52c41a', marginBottom: 12 }} />
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Loan Pre-closed Successfully!</div>
+            <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
               {[
-                { label: 'EMIs Cleared', value: bulkResult.emisCleared },
-                { label: 'Penalties Cleared', value: formatCurrency(bulkResult.penaltiesCleared, 0) },
-                { label: 'Total Paid', value: formatCurrency(bulkResult.totalAmountPaid, 0) },
-                { label: 'Loan Status', value: bulkResult.newLoanStatus },
+                { label: 'Outstanding Principal', value: formatCurrency(preCloseResult.outstandingPrincipal, 0) },
+                { label: 'Pre-closure Charge',    value: formatCurrency(preCloseResult.preClosureCharge, 0) },
+                { label: 'Penalties Cleared',      value: formatCurrency(preCloseResult.pendingPenalties, 0) },
+                { label: 'Total Paid',             value: formatCurrency(preCloseResult.totalAmountPaid, 0) },
               ].map(s => (
                 <Col span={12} key={s.label}>
-                  <div style={{ background: '#f6ffed', borderRadius: 8, padding: '10px 12px', border: '1px solid #b7eb8f' }}>
-                    <div style={{ fontSize: 11, color: '#888' }}>{s.label}</div>
+                  <div style={{ background: '#f6ffed', borderRadius: 8, padding: '10px 14px', border: '1px solid #b7eb8f' }}>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{s.label}</div>
                     <div style={{ fontWeight: 700, fontSize: 15, color: '#237804' }}>{s.value}</div>
                   </div>
                 </Col>
               ))}
             </Row>
-            <Button type="primary" onClick={() => { setBulkModal(false); setBulkResult(null) }}>
-              Done — Now Close Loan
-            </Button>
+            {preCloseResult.collateralReleased && (
+              <Alert type="success" showIcon icon={<SafetyOutlined />}
+                message={`Collateral (${formatEnum(preCloseResult.collateralType)}) released`}
+                style={{ marginBottom: 16 }}
+              />
+            )}
+            <Button type="primary" onClick={() => { setPreCloseModal(false); setPreCloseResult(null) }}>Done</Button>
           </div>
-        ) : (
-          <Form form={bulkForm} layout="vertical" onFinish={handleBulkPayment} requiredMark="optional">
-            <Row gutter={12}>
-              <Col span={12}>
-                <Form.Item label="Payment Mode" name="paymentMode" rules={[{ required: true }]}>
-                  <Select placeholder="Select mode">
-                    {['NACH', 'UPI', 'NEFT', 'RTGS', 'CASH', 'CHEQUE'].map(m => (
-                      <Select.Option key={m} value={m}>{m}</Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Payment Date" name="paymentDate" rules={[{ required: true }]} initialValue={dayjs()}>
-                  <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Transaction ID" name="transactionId">
-                  <Input placeholder="Optional" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Reference Number" name="referenceNumber">
-                  <Input placeholder="Optional" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Button type="primary" danger block htmlType="submit" loading={bulkSubmitting} icon={<CreditCardOutlined />}>
-              Confirm — Pay All {loan?.numberOfOverdueEmis} Overdue EMIs
-            </Button>
-          </Form>
-        )}
+        ) : quoteLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 12, color: '#888' }}>Calculating pre-closure amount...</div>
+          </div>
+        ) : quote ? (
+          /* ── Quote + payment form ── */
+          <>
+            {/* Breakdown */}
+            <div style={{ background: '#fafafa', borderRadius: 8, padding: '14px 16px', marginBottom: 20, border: '1px solid #f0f0f0' }}>
+              <div style={{ fontWeight: 600, marginBottom: 12, color: '#444' }}>Pre-closure Breakdown</div>
+              <Row gutter={[0, 8]}>
+                {[
+                  { label: 'Outstanding Principal', value: formatCurrency(quote.outstandingPrincipal, 0), color: '#1B3A6B' },
+                  {
+                    label: `Pre-closure Charge (${quote.chargeType === 'PERCENTAGE' ? `${quote.chargeValue}%` : 'Flat'})`,
+                    value: formatCurrency(quote.preClosureCharge, 0),
+                    color: '#d46b08',
+                  },
+                  { label: 'Pending Penalties', value: formatCurrency(quote.pendingPenalties, 0), color: '#cf1322' },
+                ].map(row => (
+                  <Col span={24} key={row.label}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#666', fontSize: 13 }}>{row.label}</span>
+                      <span style={{ fontWeight: 600, color: row.color }}>{row.value}</span>
+                    </div>
+                  </Col>
+                ))}
+                <Col span={24}><Divider style={{ margin: '8px 0' }} /></Col>
+                <Col span={24}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>Total Payable</span>
+                    <span style={{ fontWeight: 700, fontSize: 16, color: '#1B3A6B' }}>{formatCurrency(quote.totalPayable, 0)}</span>
+                  </div>
+                </Col>
+              </Row>
+              <div style={{ marginTop: 10, fontSize: 12, color: '#888' }}>
+                Clears {quote.remainingEmis} remaining EMI(s) and closes the loan instantly.
+              </div>
+            </div>
+
+            {/* Payment form */}
+            <Form form={preCloseForm} layout="vertical" onFinish={handlePreClose} requiredMark="optional">
+              <Row gutter={12}>
+                <Col span={12}>
+                  <Form.Item label="Payment Mode" name="paymentMode" rules={[{ required: true }]}>
+                    <Select placeholder="Select mode">
+                      {PAYMENT_MODES.map(m => <Select.Option key={m} value={m}>{m}</Select.Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Payment Date" name="paymentDate" rules={[{ required: true }]}>
+                    <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Transaction ID" name="transactionId">
+                    <Input placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Reference Number" name="referenceNumber">
+                    <Input placeholder="Optional" />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Alert
+                type="warning"
+                showIcon
+                message={`This will pay ${formatCurrency(quote.totalPayable, 0)}, clear all EMIs, and permanently close the loan.`}
+                style={{ marginBottom: 16 }}
+              />
+              <Button
+                type="primary"
+                block
+                htmlType="submit"
+                loading={preCloseSubmitting}
+                icon={<CreditCardOutlined />}
+                style={{ background: '#d46b08', borderColor: '#d46b08', height: 40 }}
+              >
+                Confirm Pre-closure — Pay {formatCurrency(quote.totalPayable, 0)}
+              </Button>
+            </Form>
+          </>
+        ) : null}
       </Modal>
 
-      {/* Confirm Modal */}
+      {/* Standard close confirm */}
       <Modal
         title="Confirm Loan Closure"
         open={confirmOpen}
@@ -320,8 +410,7 @@ const LoanClosure = () => {
       >
         <p>Are you sure you want to close loan <strong>{loan?.loanNumber}</strong>?</p>
         <p style={{ color: '#888', fontSize: 13 }}>
-          This will mark the loan as CLOSED and release any pledged collateral.
-          This action cannot be undone.
+          This will mark the loan as CLOSED and release any pledged collateral. This action cannot be undone.
         </p>
       </Modal>
     </>
