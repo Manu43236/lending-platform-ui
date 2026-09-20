@@ -8,7 +8,7 @@ import {
 import {
   EditOutlined, StopOutlined, ArrowLeftOutlined, SaveOutlined,
   FileTextOutlined, MailOutlined, PhoneOutlined, IdcardOutlined,
-  WarningFilled, CheckCircleFilled, FileDoneOutlined,
+  WarningFilled, CheckCircleFilled, FileDoneOutlined, BankOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import PageHeader from '../../components/PageHeader'
@@ -126,7 +126,14 @@ const CustomerDetail = () => {
       const content = data?.content || []
       setLoans(content)
       setLoanMeta({ page: data?.page ?? 0, size: data?.size ?? size, totalElements: data?.totalElements ?? 0 })
-      if (page === 0) setAllLoans(content)
+      if (page === 0) {
+        setAllLoans(content)
+        const totalElements = data?.totalElements ?? content.length
+        if (totalElements > content.length) {
+          const portfolioRes = await loanApi.getByCustomerId(id, { page: 0, size: totalElements })
+          setAllLoans(portfolioRes.data?.data?.content || content)
+        }
+      }
     } catch {
       // silent
     } finally {
@@ -171,6 +178,20 @@ const CustomerDetail = () => {
   const foir = customer?.monthlySalary > 0
     ? (totalMonthlyEmi / customer.monthlySalary) * 100
     : null
+  const bankAccounts = Array.from(
+    new Map(
+      allLoans
+        .filter((loan) => loan.disbursementAccountNumber)
+        .map((loan) => [
+          `${loan.disbursementAccountNumber}-${loan.disbursementIfsc || ''}`,
+          {
+            accountNumber: loan.disbursementAccountNumber,
+            ifsc: loan.disbursementIfsc,
+            loanNumber: loan.loanNumber,
+          },
+        ])
+    ).values()
+  )
 
   // ── Edit drawer ────────────────────────────────────────────────────────────
   const openEdit = () => {
@@ -465,6 +486,46 @@ const CustomerDetail = () => {
                     : '—'}
                 </Descriptions.Item>
               </Descriptions>
+            </Card>
+          </Col>
+
+          {/* Bank Accounts */}
+          <Col xs={24} md={12}>
+            <Card title={<Space><BankOutlined />Disbursement Bank Accounts</Space>} size="small" style={{ borderRadius: 10 }}>
+              {bankAccounts.length > 0 ? (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  {bankAccounts.map((account, index) => (
+                    <Descriptions
+                      key={`${account.accountNumber}-${account.ifsc || index}`}
+                      column={1}
+                      size="small"
+                      bordered={bankAccounts.length > 1}
+                      labelStyle={{ color: '#888', width: 140 }}
+                    >
+                      <Descriptions.Item label="Account No.">
+                        <Text strong style={{ fontFamily: 'monospace' }}>{account.accountNumber}</Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="IFSC">
+                        <Text style={{ fontFamily: 'monospace' }}>{account.ifsc || '—'}</Text>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Linked Loan">
+                        <Button
+                          type="link"
+                          size="small"
+                          style={{ padding: 0, fontFamily: 'monospace' }}
+                          onClick={() => navigate(`/los/applications/${account.loanNumber}`)}
+                        >
+                          {account.loanNumber}
+                        </Button>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  ))}
+                </Space>
+              ) : (
+                <Text type="secondary">
+                  {loansLoading ? 'Loading bank account details…' : 'No disbursement bank account recorded.'}
+                </Text>
+              )}
             </Card>
           </Col>
 
