@@ -32,6 +32,7 @@ const WidgetInner = ({ context }) => {
   const [createdLoan, setCreatedLoan] = useState(null)
   const [options, setOptions] = useState([])
   const [hideInput, setHideInput] = useState(false)
+  const [assistantMode, setAssistantMode] = useState('GUIDED')
   const messagesEndRef = useRef(null)
   const initialized = useRef(false)
 
@@ -67,6 +68,7 @@ const WidgetInner = ({ context }) => {
 
       if (data?.sessionId) setSessionId(data.sessionId)
       if (data?.sessionStatus) setSessionStatus(data.sessionStatus)
+      if (data?.assistantMode) setAssistantMode(data.assistantMode)
       if (data?.reply) addMessage('assistant', data.reply)
 
       setOptions(data?.options || [])
@@ -129,7 +131,7 @@ const WidgetInner = ({ context }) => {
   return (
     <>
       {/* Floating button */}
-      <Tooltip title="AI Assistant" placement="left">
+      <Tooltip title="FinPulse Assistant" placement="left">
         <button
           onClick={() => setOpen((o) => !o)}
           style={{
@@ -166,9 +168,9 @@ const WidgetInner = ({ context }) => {
           }}>
             <RobotOutlined style={{ color: '#fff', fontSize: 18 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <Text strong style={{ color: '#fff', fontSize: 14, display: 'block' }}>AI Assistant</Text>
+              <Text strong style={{ color: '#fff', fontSize: 14, display: 'block' }}>FinPulse Assistant</Text>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>
-                Loan onboarding assistant
+                {assistantMode === 'GUIDED' ? 'Reliable guided workflow' : 'LLM-assisted workflow'}
               </Text>
             </div>
             <div style={{

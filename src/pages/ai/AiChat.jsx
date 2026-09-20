@@ -27,6 +27,7 @@ const AiChat = () => {
   const [createdLoan, setCreatedLoan] = useState(null)
   const [options, setOptions] = useState([])
   const [hideInput, setHideInput] = useState(false)
+  const [assistantMode, setAssistantMode] = useState('GUIDED')
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -55,6 +56,7 @@ const AiChat = () => {
 
       if (data?.sessionId) setSessionId(data.sessionId)
       if (data?.sessionStatus) setSessionStatus(data.sessionStatus)
+      if (data?.assistantMode) setAssistantMode(data.assistantMode)
       if (data?.reply) addMessage('assistant', data.reply)
 
       setOptions(data?.options || [])
@@ -112,12 +114,13 @@ const AiChat = () => {
       }}>
         <RobotOutlined style={{ fontSize: 24, color: '#1B3A6B' }} />
         <div>
-          <Title level={5} style={{ margin: 0, color: '#1B3A6B' }}>AI Onboarding Assistant</Title>
+          <Title level={5} style={{ margin: 0, color: '#1B3A6B' }}>FinPulse Onboarding Assistant</Title>
           <Text type="secondary" style={{ fontSize: 12 }}>
             Create customers and loans through conversation
           </Text>
         </div>
-        <Tag color={sessionStatus === 'COMPLETED' ? 'success' : 'processing'} style={{ marginLeft: 'auto' }}>
+        <Tag color="blue">{assistantMode === 'GUIDED' ? 'GUIDED WORKFLOW' : 'LLM ASSISTED'}</Tag>
+        <Tag color={sessionStatus === 'COMPLETED' ? 'success' : 'processing'}>
           {sessionStatus}
         </Tag>
       </div>
@@ -239,7 +242,7 @@ const AiChat = () => {
 
         {sessionStatus === 'COMPLETED' && (
           <Alert
-            message="Session completed. Start a new conversation to create another customer."
+            message="Session completed. Start a new conversation for another customer or loan."
             type="success"
             showIcon
             style={{ marginTop: 12 }}
