@@ -464,7 +464,7 @@ const CustomerDetail = () => {
 
           {/* Employment */}
           <Col xs={24} md={12}>
-            <Card title="Employment & Income" size="small" style={{ borderRadius: 10 }}>
+            <Card title="Employment & Income" size="small" style={{ borderRadius: 10, height: '100%' }}>
               <Descriptions column={1} size="small" labelStyle={{ color: '#888', width: 140 }}>
                 <Descriptions.Item label="Employment">
                   {customer.employmentType
@@ -489,54 +489,58 @@ const CustomerDetail = () => {
             </Card>
           </Col>
 
-          {/* Bank Accounts */}
-          <Col xs={24} md={12}>
-            <Card title={<Space><BankOutlined />Disbursement Bank Accounts</Space>} size="small" style={{ borderRadius: 10 }}>
-              {bankAccounts.length > 0 ? (
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  {bankAccounts.map((account, index) => (
-                    <Descriptions
-                      key={`${account.accountNumber}-${account.ifsc || index}`}
-                      column={1}
-                      size="small"
-                      bordered={bankAccounts.length > 1}
-                      labelStyle={{ color: '#888', width: 140 }}
-                    >
-                      <Descriptions.Item label="Account No.">
-                        <Text strong style={{ fontFamily: 'monospace' }}>{account.accountNumber}</Text>
-                      </Descriptions.Item>
-                      <Descriptions.Item label="IFSC">
-                        <Text style={{ fontFamily: 'monospace' }}>{account.ifsc || '—'}</Text>
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Linked Loan">
-                        <Button
-                          type="link"
-                          size="small"
-                          style={{ padding: 0, fontFamily: 'monospace' }}
-                          onClick={() => navigate(`/los/applications/${account.loanNumber}`)}
-                        >
-                          {account.loanNumber}
-                        </Button>
-                      </Descriptions.Item>
-                    </Descriptions>
-                  ))}
-                </Space>
-              ) : (
-                <Text type="secondary">
-                  {loansLoading ? 'Loading bank account details…' : 'No disbursement bank account recorded.'}
-                </Text>
-              )}
-            </Card>
-          </Col>
-
           {/* Record Info */}
           <Col xs={24} md={12}>
-            <Card title="Record Info" size="small" style={{ borderRadius: 10 }}>
+            <Card title="Record Info" size="small" style={{ borderRadius: 10, height: '100%' }}>
               <Descriptions column={1} size="small" labelStyle={{ color: '#888', width: 140 }}>
                 <Descriptions.Item label="Onboarded By">{customer.createdBy || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Onboarded On">{formatDateTime(customer.createdAt)}</Descriptions.Item>
                 <Descriptions.Item label="Last Updated">{customer.updatedAt ? formatDateTime(customer.updatedAt) : '—'}</Descriptions.Item>
               </Descriptions>
+            </Card>
+          </Col>
+
+          {/* Bank Accounts */}
+          <Col span={24}>
+            <Card title={<Space><BankOutlined />Disbursement Bank Accounts</Space>} size="small" style={{ borderRadius: 10 }}>
+              {bankAccounts.length > 0 ? (
+                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+                  {bankAccounts.map((account, index) => (
+                    <div
+                      key={`${account.accountNumber}-${account.ifsc || index}`}
+                      style={{ minWidth: 320, maxWidth: 360, flex: '0 0 320px' }}
+                    >
+                      <Descriptions
+                        column={1}
+                        size="small"
+                        bordered
+                        labelStyle={{ color: '#888', width: 120 }}
+                      >
+                        <Descriptions.Item label="Account No.">
+                          <Text strong style={{ fontFamily: 'monospace' }}>{account.accountNumber}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="IFSC">
+                          <Text style={{ fontFamily: 'monospace' }}>{account.ifsc || '—'}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Linked Loan">
+                          <Button
+                            type="link"
+                            size="small"
+                            style={{ padding: 0, fontFamily: 'monospace' }}
+                            onClick={() => navigate(`/los/applications/${account.loanNumber}`)}
+                          >
+                            {account.loanNumber}
+                          </Button>
+                        </Descriptions.Item>
+                      </Descriptions>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Text type="secondary">
+                  {loansLoading ? 'Loading bank account details…' : 'No disbursement bank account recorded.'}
+                </Text>
+              )}
             </Card>
           </Col>
         </Row>
