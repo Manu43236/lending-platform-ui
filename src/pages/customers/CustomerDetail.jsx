@@ -48,14 +48,14 @@ const DocStatusTag = ({ status }) => {
 // ── Credit score pill ─────────────────────────────────────────────────────────
 const CreditScorePill = ({ score }) => {
   if (!score) return <Text type="secondary">—</Text>
-  const color = score >= 750 ? '#52c41a' : score >= 650 ? '#faad14' : '#f5222d'
+  const color = score >= 750 ? '#1B3A6B' : score >= 650 ? '#ad6800' : '#cf1322'
   const label = score >= 750 ? 'Excellent' : score >= 700 ? 'Good' : score >= 650 ? 'Fair' : 'Poor'
   return (
     <Space size={8}>
       <span style={{
         fontSize: 22, fontWeight: 700, color,
       }}>{score}</span>
-      <Tag color={score >= 750 ? 'success' : score >= 650 ? 'warning' : 'error'}>{label}</Tag>
+      <Tag color={score >= 750 ? 'blue' : score >= 650 ? 'warning' : 'error'}>{label} score band</Tag>
     </Space>
   )
 }
@@ -178,6 +178,12 @@ const CustomerDetail = () => {
   const foir = customer?.monthlySalary > 0
     ? (totalMonthlyEmi / customer.monthlySalary) * 100
     : null
+  const hasNpa = activeLoans.some((loan) => loan.loanStatusCode === 'NPA')
+  const portfolioRisk = hasNpa || totalOverdue > 0 || foir > 60
+    ? 'HIGH'
+    : foir > 50
+      ? 'MEDIUM'
+      : 'LOW'
   const bankAccounts = Array.from(
     new Map(
       allLoans
@@ -447,8 +453,15 @@ const CustomerDetail = () => {
                 <Descriptions.Item label="Aadhaar">
                   <Text style={{ fontFamily: 'monospace' }}>{maskAadhaar(customer.aadhar)}</Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="Credit Score">
+                <Descriptions.Item label="Stored Credit Score">
                   <CreditScorePill score={customer.creditScore} />
+                </Descriptions.Item>
+                <Descriptions.Item label="Current Portfolio Risk">
+                  <Tooltip title="Calculated from current FOIR, overdue exposure and NPA status. The stored credit score is not automatically refreshed from a credit bureau.">
+                    <Tag color={portfolioRisk === 'HIGH' ? 'error' : portfolioRisk === 'MEDIUM' ? 'warning' : 'success'}>
+                      {portfolioRisk} RISK
+                    </Tag>
+                  </Tooltip>
                 </Descriptions.Item>
                 <Descriptions.Item label="Status">
                   {customer.isActive
