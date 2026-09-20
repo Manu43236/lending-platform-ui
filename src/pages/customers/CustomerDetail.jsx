@@ -93,6 +93,7 @@ const CustomerDetail = () => {
   const [allLoans, setAllLoans] = useState([])   // for KPI computation (first page)
   const [loanMeta, setLoanMeta] = useState({ page: 0, size: 10, totalElements: 0 })
   const [docs, setDocs] = useState([])
+  const [scoreHistory, setScoreHistory] = useState([])
   const [docMeta, setDocMeta] = useState({ page: 0, size: 10, totalElements: 0 })
 
   const [loading, setLoading] = useState(true)
@@ -111,6 +112,8 @@ const CustomerDetail = () => {
     try {
       const res = await customerApi.getById(id)
       setCustomer(res.data?.data)
+      const historyRes = await customerApi.getBehaviorScoreHistory(id)
+      setScoreHistory(historyRes.data?.data || [])
     } catch (err) {
       showError(err, 'Failed to load customer')
     } finally {
@@ -453,7 +456,7 @@ const CustomerDetail = () => {
                 <Descriptions.Item label="Aadhaar">
                   <Text style={{ fontFamily: 'monospace' }}>{maskAadhaar(customer.aadhar)}</Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="Stored Credit Score">
+                <Descriptions.Item label="FinPulse Behaviour Score">
                   <CreditScorePill score={customer.creditScore} />
                 </Descriptions.Item>
                 <Descriptions.Item label="Current Portfolio Risk">
@@ -554,6 +557,31 @@ const CustomerDetail = () => {
                   {loansLoading ? 'Loading bank account details…' : 'No disbursement bank account recorded.'}
                 </Text>
               )}
+            </Card>
+          </Col>
+
+          {/* Behaviour Score History */}
+          <Col span={24}>
+            <Card title="Behaviour Score History" size="small" style={{ borderRadius: 10 }}>
+              <Table
+                rowKey="id"
+                size="small"
+                pagination={false}
+                dataSource={scoreHistory}
+                locale={{ emptyText: 'No score changes yet. The customer is at the initial score of 758.5.' }}
+                scroll={{ x: 760 }}
+                columns={[
+                  { title: 'Date', dataIndex: 'createdAt', width: 170, render: formatDateTime },
+                  { title: 'Trigger', dataIndex: 'triggerSource', width: 120, render: (v) => <Tag>{v?.replace(/_/g, ' ')}</Tag> },
+                  { title: 'Previous', dataIndex: 'previousScore', width: 90 },
+                  { title: 'New Score', dataIndex: 'newScore', width: 90, render: (v) => <Text strong>{v}</Text> },
+                  {
+                    title: 'Change', dataIndex: 'scoreChange', width: 90,
+                    render: (v) => <Text strong style={{ color: v < 0 ? '#cf1322' : '#389e0d' }}>{v > 0 ? `+${v}` : v}</Text>,
+                  },
+                  { title: 'Reason', dataIndex: 'reason' },
+                ]}
+              />
             </Card>
           </Col>
         </Row>

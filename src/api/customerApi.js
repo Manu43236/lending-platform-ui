@@ -7,6 +7,8 @@ export const customerApi = {
   // Get customer by ID
   getById: (id) => api.get(`/api/customers/${id}`),
 
+  getBehaviorScoreHistory: (id) => api.get(`/api/customers/${id}/behavior-score-history`),
+
   // Create customer
   create: (data) => api.post('/api/customers', data),
 
